@@ -13,15 +13,36 @@ const App = () => {
   // State to hold items in the current cart/sale
   const [cart, setCart] = useState([]);
 
-  // State to hold the calculated total price
+  // State for discount and totals
+  const [discount, setDiscount] = useState(0); // New state for discount percentage
+  const [subtotal, setSubtotal] = useState(0);
+  const [tax, setTax] = useState(0);
   const [total, setTotal] = useState(0);
 
-  // useEffect hook to re-calculate total whenever the cart changes
+  // Constants for tax rate and currency formatting
+  const TAX_RATE = 0.0825; // 8.25% tax rate
+  const formatCurrency = (amount) => `$${amount.toFixed(2)}`;
+
+  // useEffect hook to re-calculate all totals whenever the cart or discount changes
   useEffect(() => {
-    // Calculate the sum of all item prices in the cart
-    const newTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    // Calculate the subtotal (sum of all item prices in the cart)
+    const newSubtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+    // Apply the discount to the subtotal
+    const discountAmount = newSubtotal * (discount / 100);
+    const subtotalAfterDiscount = newSubtotal - discountAmount;
+
+    // Calculate tax on the discounted subtotal
+    const newTax = subtotalAfterDiscount * TAX_RATE;
+
+    // Calculate the final total
+    const newTotal = subtotalAfterDiscount + newTax;
+
+    // Update the state with the new values
+    setSubtotal(newSubtotal);
+    setTax(newTax);
     setTotal(newTotal);
-  }, [cart]); // Dependency array: this effect runs when 'cart' changes
+  }, [cart, discount]); // Dependency array: this effect runs when 'cart' or 'discount' changes
 
   // Function to add a product to the cart
   const addToCart = (productToAdd) => {
@@ -53,12 +74,24 @@ const App = () => {
     }).filter(Boolean)); // Filter out nulls (items with quantity 0)
   };
 
+  // Function to handle changes in the discount input field
+  const handleDiscountChange = (e) => {
+    const value = e.target.value;
+    // Ensure the value is a number and within a reasonable range (0-100)
+    if (value === '' || (!isNaN(value) && value >= 0 && value <= 100)) {
+      setDiscount(Number(value));
+    }
+  };
+
   // Function to clear the entire cart (e.g., after a sale)
   const clearCart = () => {
     setCart([]);
+    setDiscount(0);
+    setSubtotal(0);
+    setTax(0);
     setTotal(0);
     // In a real app, you'd process the order here (e.g., send to server, print receipt)
-    alert("Sale completed! Cart cleared."); // Using alert for simplicity, in a real app use a custom modal
+    alert("Sale completed! Cart cleared."); // Using alert for simplicity
   };
 
   return (
@@ -78,8 +111,8 @@ const App = () => {
             {products.map(product => (
               <div key={product.id} className="bg-blue-50 p-4 rounded-xl shadow-md flex flex-col justify-between transform transition duration-300 hover:scale-105 hover:shadow-lg border border-blue-200">
                 <div>
-                  <h3 className="text-lg font-semibold text-indigo-900 mb-1">{product.name}</h3>
-                  <p className="text-blue-700 text-xl font-bold">${product.price.toFixed(2)}</p>
+                  <h3 className="lg font-semibold text-indigo-900 mb-1">{product.name}</h3>
+                  <p className="text-blue-700 text-xl font-bold">{formatCurrency(product.price)}</p>
                 </div>
                 <button
                   onClick={() => addToCart(product)}
@@ -105,7 +138,7 @@ const App = () => {
                 <div key={item.id} className="flex justify-between items-center bg-blue-50 p-3 rounded-lg mb-2 shadow-sm border border-blue-100">
                   <div className="flex-1">
                     <p className="font-medium text-indigo-800">{item.name}</p>
-                    <p className="text-sm text-gray-600">${item.price.toFixed(2)} x {item.quantity}</p>
+                    <p className="text-sm text-gray-600">{formatCurrency(item.price)} x {item.quantity}</p>
                   </div>
                   <div className="flex items-center space-x-2">
                     <button
@@ -127,12 +160,36 @@ const App = () => {
             </div>
           )}
 
-          {/* Total and Checkout */}
+          {/* Discount and Totals Section */}
           <div className="mt-auto pt-4 border-t-2 border-blue-300">
-            <div className="flex justify-between items-center mb-4">
-              <span className="text-2xl font-bold text-indigo-900">Total:</span>
-              <span className="text-3xl font-extrabold text-green-700">${total.toFixed(2)}</span>
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-lg font-medium text-indigo-900">Subtotal:</span>
+              <span className="text-lg font-bold text-indigo-900">{formatCurrency(subtotal)}</span>
             </div>
+            
+            <div className="flex justify-between items-center mb-2">
+              <label htmlFor="discount" className="text-lg font-medium text-indigo-900">Discount (%):</label>
+              <input
+                type="number"
+                id="discount"
+                value={discount}
+                onChange={handleDiscountChange}
+                min="0"
+                max="100"
+                className="w-20 text-lg font-bold text-right px-2 py-1 rounded-lg border-2 border-blue-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-lg font-medium text-indigo-900">Tax ({ (TAX_RATE * 100).toFixed(2) } %):</span>
+              <span className="text-lg font-bold text-indigo-900">{formatCurrency(tax)}</span>
+            </div>
+
+            <div className="flex justify-between items-center my-4">
+              <span className="text-2xl font-bold text-indigo-900">Total:</span>
+              <span className="text-3xl font-extrabold text-green-700">{formatCurrency(total)}</span>
+            </div>
+            
             <button
               onClick={clearCart}
               disabled={cart.length === 0}
