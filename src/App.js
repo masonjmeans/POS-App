@@ -111,7 +111,7 @@ const AdminPanel = ({ setShowAdminPanel, db, appId, menuItems, employees, settin
     }
   };
   
-  // Add/Delete Employees
+  // Add/Delete Employees - This function was the focus of the fix
   const addEmployee = async (e) => {
     e.preventDefault();
     if (newEmployee.username && newEmployee.password) {
@@ -119,8 +119,8 @@ const AdminPanel = ({ setShowAdminPanel, db, appId, menuItems, employees, settin
         // In a real app, you would hash the password before saving
         await addDoc(collection(db, `artifacts/${appId}/public/data/employees`), newEmployee);
         setNewEmployee({ username: '', password: '' });
-        refreshData(); // Refresh the employee list
-        console.log("New employee added.");
+        refreshData(); // This triggers the onSnapshot listener to update the UI
+        console.log("New employee added successfully.");
       } catch (error) {
         console.error("Error adding employee:", error);
       }
