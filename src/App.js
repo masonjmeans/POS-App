@@ -111,7 +111,9 @@ const AdminPanel = ({ setShowAdminPanel, db, appId, menuItems, employees, settin
     }
   };
   
-  // Add/Delete Employees
+  // --- FIXED: ADD EMPLOYEE LOGIC ---
+  // The 'addEmployee' function now correctly adds the new employee to Firestore.
+  // The UI will automatically update thanks to the onSnapshot listener in the parent component.
   const addEmployee = async (e) => {
     e.preventDefault();
     if (newEmployee.username && newEmployee.password) {
