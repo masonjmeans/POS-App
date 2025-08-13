@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
-import { getFirestore, collection, addDoc, Timestamp, onSnapshot, doc, setDoc, deleteDoc, getDocs } from 'firebase/firestore';
-import { ShoppingCart, X, PlusCircle, MinusCircle, Send, Trash2, Settings, ArrowLeft, Plus, Edit, Save, Eraser, LogIn, LogOut, Users, Store, Utensils, Palette, Sun, Moon, Lock } from 'lucide-react';
+import { getFirestore, collection, addDoc, Timestamp, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { PlusCircle, MinusCircle, Send, Trash2, Settings, ArrowLeft, Plus, Edit, Save, Eraser, LogIn, LogOut, Users, Store, Utensils, Palette, Sun, Moon, Lock } from 'lucide-react';
 
 // Admin Panel Component with new features
 const AdminPanel = ({ setShowAdminPanel, db, appId, menuItems, employees, settings, refreshData }) => {
@@ -507,6 +507,7 @@ const PosStand = () => {
 
   // Combined Effect to initialize Firebase and fetch all data
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     console.log("Starting Firebase initialization and data fetching...");
     
     if (typeof __firebase_config === 'undefined' || typeof __app_id === 'undefined') {
@@ -652,15 +653,10 @@ const PosStand = () => {
       const newOrder = prevOrder.map(item =>
         item.id === itemId
           ? { ...item, quantity: Math.max(0, item.quantity + change) }
-          : item // Added the missing 'else' condition for the ternary operator
+          : item
       ).filter(item => item.quantity > 0);
       return newOrder;
     });
-  };
-
-  // Function to remove an item from the order
-  const removeItemFromOrder = (itemId) => {
-    setOrder(prevOrder => prevOrder.filter(item => item.id !== itemId));
   };
 
   // Function to clear the entire order
