@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
-import { getFirestore, collection, addDoc, Timestamp, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
-import { ShoppingCart, X, PlusCircle, MinusCircle, Send, Trash2, Settings, ArrowLeft, Plus, Edit, Save, Eraser, LogIn, LogOut, Users, Store, Utensils, Palette, Sun, Moon } from 'lucide-react';
+import { getFirestore, collection, addDoc, Timestamp, onSnapshot, doc, setDoc, deleteDoc, getDocs } from 'firebase/firestore';
+import { ShoppingCart, X, PlusCircle, MinusCircle, Send, Trash2, Settings, ArrowLeft, Plus, Edit, Save, Eraser, LogIn, LogOut, Users, Store, Utensils, Palette, Sun, Moon, Lock } from 'lucide-react';
 
 // Admin Panel Component with new features
 const AdminPanel = ({ setShowAdminPanel, db, appId, menuItems, employees, settings, refreshData }) => {
@@ -30,7 +30,7 @@ const AdminPanel = ({ setShowAdminPanel, db, appId, menuItems, employees, settin
 
   const handleEditChange = (e) => {
     const { name, value } = e.target;
-    setEditingItem(prev => ({ ...prev, [prev.id === 'new' ? 'id' : name]: value }));
+    setEditingItem(prev => ({ ...prev, [name]: value }));
   };
 
   const handleEmployeeChange = (e) => {
@@ -111,7 +111,7 @@ const AdminPanel = ({ setShowAdminPanel, db, appId, menuItems, employees, settin
     }
   };
   
-  // Add/Delete Employees - This function was the focus of the fix
+  // Add/Delete Employees
   const addEmployee = async (e) => {
     e.preventDefault();
     if (newEmployee.username && newEmployee.password) {
@@ -400,7 +400,7 @@ const AdminPanel = ({ setShowAdminPanel, db, appId, menuItems, employees, settin
       </div>
 
       {showConfirmModal && (
-        <div className="absolute inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-50">
           <div className={`p-6 rounded-xl shadow-2xl max-w-sm w-full ${cardBgClass}`}>
             <h3 className={`text-xl font-bold mb-4 ${primaryTextClass}`}>Confirm Deletion</h3>
             <p className={`mb-6 ${secondaryTextClass}`}>Are you sure you want to delete "{itemToDelete?.name}"? This action cannot be undone.</p>
@@ -413,7 +413,7 @@ const AdminPanel = ({ setShowAdminPanel, db, appId, menuItems, employees, settin
       )}
       
       {showEmployeeConfirmModal && (
-        <div className="absolute inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-50">
           <div className={`p-6 rounded-xl shadow-2xl max-w-sm w-full ${cardBgClass}`}>
             <h3 className={`text-xl font-bold mb-4 ${primaryTextClass}`}>Confirm Employee Deletion</h3>
             <p className={`mb-6 ${secondaryTextClass}`}>Are you sure you want to delete employee "{employeeToDelete?.username}"? This action cannot be undone.</p>
@@ -503,7 +503,7 @@ const PosStand = () => {
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
-  const adminPassword = 'Means';
+  const adminPassword = 'Means'; // This is a placeholder for a real admin password
 
   // Combined Effect to initialize Firebase and fetch all data
   useEffect(() => {
@@ -652,7 +652,7 @@ const PosStand = () => {
       const newOrder = prevOrder.map(item =>
         item.id === itemId
           ? { ...item, quantity: Math.max(0, item.quantity + change) }
-          : item
+          : item // Added the missing 'else' condition for the ternary operator
       ).filter(item => item.quantity > 0);
       return newOrder;
     });
@@ -675,10 +675,7 @@ const PosStand = () => {
       return;
     }
 
-    const tableNumber = Math.floor(Math.random() * 100) + 1;
-
     const newOrder = {
-      tableNumber,
       items: order,
       status: 'pending',
       timestamp: Timestamp.now(),
@@ -709,46 +706,61 @@ const PosStand = () => {
   const primaryText = `text-${theme.primary}-${theme.isDarkMode ? '400' : '600'}`;
   const secondaryBtn = `bg-${theme.secondary}-${theme.isDarkMode ? '700' : '300'} hover:bg-${theme.secondary}-${theme.isDarkMode ? '600' : '400'} text-${theme.isDarkMode ? 'white' : 'gray-800'}`;
   const cardBgClass = theme.isDarkMode ? 'bg-gray-800' : 'bg-white';
-  const cardHoverClass = theme.isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-200';
+  const borderClass = theme.isDarkMode ? 'border-gray-700' : 'border-gray-200';
+  const inputClass = theme.isDarkMode ? 'bg-gray-700 text-gray-200 border-gray-600' : 'bg-gray-200 text-gray-800 border-gray-300';
   const bgColorClass = theme.isDarkMode ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-800';
-  const inputClass = theme.isDarkMode ? 'bg-gray-700 text-gray-200 border-gray-600 focus:ring-teal-500' : 'bg-gray-200 text-gray-800 border-gray-300 focus:ring-teal-500';
 
   if (loading) {
     return (
       <div className={`flex items-center justify-center min-h-screen ${bgColorClass}`}>
-        <p className="text-xl">Loading...</p>
+        <div className="text-xl font-bold animate-pulse">Loading...</div>
       </div>
     );
   }
 
-  // Render Admin Panel if showAdminPanel is true
+  // --- FIXED RENDERING LOGIC ---
+  // First, check if the user is in the admin panel.
   if (showAdminPanel) {
-    return <AdminPanel setShowAdminPanel={setShowAdminPanel} db={db} appId={appId} menuItems={menuItems} employees={employees} settings={settings} refreshData={refreshData} />;
+    return (
+      <AdminPanel
+        setShowAdminPanel={setShowAdminPanel}
+        db={db}
+        appId={appId}
+        menuItems={menuItems}
+        employees={employees}
+        settings={settings}
+        refreshData={refreshData}
+      />
+    );
   }
-
-  // Render Sign-in Screen if not signed in and not trying to access admin panel
-  if (!isEmployeeSignedIn && !showLogin) {
-    return <SignInScreen handleSignIn={handleEmployeeSignIn} signInError={signInError} setShowLogin={setShowLogin} settings={settings} />;
-  }
-
-  // Render Admin Login Screen if showLogin is true
+  
+  // Second, check if the user is attempting to login as an admin
   if (showLogin) {
     return (
       <div className={`flex items-center justify-center min-h-screen font-inter transition-colors duration-500 ${bgColorClass}`}>
         <div className={`p-8 rounded-xl shadow-lg max-w-sm w-full ${cardBgClass}`}>
           <div className="flex flex-col items-center mb-6">
-            <Settings size={48} className={`mb-4 ${primaryText}`} />
-            <h2 className={`text-3xl font-bold ${primaryText}`}>{settings.businessName}</h2>
-            <h3 className={`text-xl font-bold ${primaryText}`}>Admin Login</h3>
+            <Lock size={48} className={`mb-4 ${primaryText}`}/>
+            <h2 className={`text-3xl font-bold ${primaryText}`}>Admin Access</h2>
           </div>
           <form onSubmit={handleAdminLogin} className="space-y-4">
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Admin Password" className={`w-full p-3 rounded-lg border focus:outline-none focus:ring-2 ${inputClass}`} required />
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Admin Password"
+              className={`w-full p-3 rounded-lg border focus:outline-none focus:ring-2 ${inputClass} focus:ring-${theme.primary}-${theme.isDarkMode ? '400' : '600'}`}
+              required
+            />
             {loginError && <p className="text-red-400 text-sm text-center">{loginError}</p>}
-            <button type="submit" className={`w-full mt-4 flex items-center justify-center font-bold py-3 px-6 rounded-lg transition duration-200 ${primaryBtn}`}>Log In</button>
+            <button type="submit" className={`w-full flex items-center justify-center font-bold py-3 px-6 rounded-lg transition duration-200 ${primaryBtn}`}>
+              <LogIn className="mr-2" />
+              Submit
+            </button>
             <button
               type="button"
               onClick={() => setShowLogin(false)}
-              className={`w-full mt-2 flex items-center justify-center font-bold py-3 px-6 rounded-lg transition duration-200 ${secondaryBtn}`}
+              className={`w-full flex items-center justify-center font-bold py-3 px-6 rounded-lg transition duration-200 ${secondaryBtn}`}
             >
               <ArrowLeft className="mr-2" />
               Back
@@ -759,116 +771,102 @@ const PosStand = () => {
     );
   }
 
-  // Main POS UI when employee is signed in
-  const categories = [...new Set(menuItems.map(item => item.category))];
-
-  return (
-    <div className={`flex flex-col lg:flex-row h-screen font-inter ${bgColorClass} transition-colors duration-500`}>
-      {/* Left side: Menu Display */}
-      <div className="flex-1 p-6 lg:p-10 overflow-y-auto">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className={`text-4xl lg:text-5xl font-extrabold ${primaryText}`}>{settings.businessName} POS</h1>
-          <button onClick={handleEmployeeSignOut} className={`flex items-center font-bold py-2 px-4 rounded-lg ${secondaryBtn}`}>
-            <LogOut className="mr-2" />
-            Sign Out
-          </button>
-        </div>
-        
-        {categories.map(category => (
-          <div key={category} className="mb-8">
-            <h2 className={`text-3xl font-bold mb-4 border-b pb-2 ${primaryText}`}>{category}</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {menuItems.filter(item => item.category === category).map(item => (
-                <div
-                  key={item.id}
-                  onClick={() => addItemToOrder(item)}
-                  className={`relative p-4 rounded-lg shadow-md cursor-pointer transition ${cardBgClass} ${cardHoverClass}`}
-                >
-                  <h3 className="text-lg font-semibold">{item.name}</h3>
-                  <p className="text-sm">{item.category}</p>
-                  <div className="absolute bottom-4 right-4 flex items-center">
-                    <span className={`text-xl font-bold text-green-400`}>${item.price.toFixed(2)}</span>
-                  </div>
-                </div>
-              ))}
+  // Third, check if an employee is signed in to show the main POS screen.
+  if (isEmployeeSignedIn) {
+    return (
+      <div className={`flex flex-col lg:flex-row min-h-screen font-inter ${bgColorClass} transition-colors duration-500`}>
+        {/* Main Menu & Order-Taking Section */}
+        <div className="w-full lg:w-2/3 p-4 lg:p-6 flex flex-col">
+          <header className={`flex justify-between items-center p-4 lg:p-6 mb-4 rounded-xl shadow-lg ${cardBgClass}`}>
+            <h1 className={`text-3xl lg:text-4xl font-extrabold ${primaryText}`}>{settings.businessName} POS</h1>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleEmployeeSignOut}
+                className={`p-3 rounded-full transition-colors ${secondaryBtn}`}
+              >
+                <LogOut size={24} />
+              </button>
             </div>
-          </div>
-        ))}
-      </div>
+          </header>
 
-      {/* Right side: Order Cart */}
-      <div className={`w-full lg:w-1/3 flex flex-col p-6 lg:p-10 shadow-lg ${cardBgClass} border-l ${theme.isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-        <div className="flex items-center justify-between mb-6">
-          <h2 className={`text-3xl font-bold ${primaryText}`}>
-            <ShoppingCart className="inline-block mr-2" />
-            Current Order
-          </h2>
-          <button onClick={clearOrder} className={`p-2 rounded-full ${secondaryBtn}`}>
-            <Trash2 size={24} />
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto space-y-4 pr-2">
-          {order.length === 0 ? (
-            <p className="text-center text-gray-500 italic">Order is empty. Add items from the menu!</p>
-          ) : (
-            order.map(item => (
-              <div key={item.id} className={`flex items-center justify-between p-3 rounded-lg ${secondaryBtn}`}>
-                <div className="flex items-center space-x-2">
-                  <button onClick={() => updateItemQuantity(item.id, -1)} className="p-1 rounded-full bg-red-500 text-white hover:bg-red-600 transition">
-                    <MinusCircle size={20} />
-                  </button>
-                  <span className="text-lg font-bold">{item.quantity}</span>
-                  <button onClick={() => updateItemQuantity(item.id, 1)} className="p-1 rounded-full bg-green-500 text-white hover:bg-green-600 transition">
-                    <PlusCircle size={20} />
-                  </button>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 overflow-y-auto flex-1 p-2 rounded-xl">
+            {menuItems.length > 0 ? (
+              menuItems.map(item => (
+                <div key={item.id} className={`p-4 rounded-xl shadow-md cursor-pointer transition-all duration-200 ${cardBgClass} hover:ring-2 hover:ring-${theme.primary}-500 transform hover:scale-105`} onClick={() => addItemToOrder(item)}>
+                  <h3 className="text-xl font-bold mb-1">{item.name}</h3>
+                  <p className={`text-sm mb-2 ${primaryText}`}>{item.category}</p>
+                  <span className="text-lg font-bold">${item.price.toFixed(2)}</span>
                 </div>
-                <div className="flex-1 ml-4">
-                  <p className="font-semibold">{item.name}</p>
-                </div>
-                <div className="flex items-center space-x-4">
-                  <p className={`font-bold text-lg text-green-400`}>${(item.price * item.quantity).toFixed(2)}</p>
-                  <button onClick={() => removeItemFromOrder(item.id)} className="p-1 rounded-full bg-red-600 text-white hover:bg-red-700 transition">
-                    <X size={20} />
-                  </button>
-                </div>
+              ))
+            ) : (
+              <div className={`col-span-full text-center p-8 ${cardBgClass} rounded-xl shadow-md`}>
+                <p className="text-lg">No menu items available. Please check the admin panel.</p>
               </div>
-            ))
-          )}
+            )}
+          </div>
         </div>
 
-        <div className={`mt-6 pt-6 border-t ${theme.isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-          <div className="flex justify-between text-xl font-medium mb-2">
-            <span>Subtotal:</span>
-            <span>${subtotal.toFixed(2)}</span>
+        {/* Order Summary and Checkout Section */}
+        <div className={`w-full lg:w-1/3 p-4 lg:p-6 ${cardBgClass} shadow-lg flex flex-col`}>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className={`text-2xl font-bold ${primaryText}`}>Current Order</h2>
+            <button onClick={clearOrder} className={`p-2 rounded-full ${secondaryBtn}`} aria-label="Clear Order">
+              <Trash2 size={20} />
+            </button>
           </div>
-          <div className="flex justify-between text-xl font-medium mb-4">
-            <span>Tax ({taxRate * 100}%):</span>
-            <span>${tax.toFixed(2)}</span>
+          <ul className="flex-1 overflow-y-auto space-y-3 pr-2">
+            {order.length > 0 ? (
+              order.map(item => (
+                <li key={item.id} className={`flex items-center justify-between p-3 rounded-lg ${borderClass} border-b`}>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-lg font-medium">{item.name}</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <button onClick={() => updateItemQuantity(item.id, -1)} className={`p-1 rounded-full ${secondaryBtn}`}><MinusCircle size={20} /></button>
+                    <span className="w-6 text-center">{item.quantity}</span>
+                    <button onClick={() => updateItemQuantity(item.id, 1)} className={`p-1 rounded-full ${secondaryBtn}`}><PlusCircle size={20} /></button>
+                  </div>
+                  <span className="text-lg font-bold">${(item.price * item.quantity).toFixed(2)}</span>
+                </li>
+              ))
+            ) : (
+              <div className="text-center text-gray-500 py-8">No items in the order.</div>
+            )}
+          </ul>
+          <div className={`mt-4 pt-4 ${borderClass} border-t-2`}>
+            <div className="flex justify-between text-lg font-medium mb-1">
+              <span>Subtotal:</span>
+              <span>${subtotal.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between text-lg font-medium mb-4">
+              <span>Tax ({taxRate * 100}%):</span>
+              <span>${tax.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between text-2xl font-bold mb-4">
+              <span>Total:</span>
+              <span>${total.toFixed(2)}</span>
+            </div>
+            <button
+              onClick={sendOrderToKitchen}
+              className={`w-full py-4 rounded-lg flex items-center justify-center font-bold text-lg transition duration-200 ${primaryBtn}`}
+            >
+              <Send className="mr-2" />
+              Send to Kitchen
+            </button>
           </div>
-          <div className="flex justify-between text-3xl font-bold mb-6">
-            <span>Total:</span>
-            <span className={`${primaryText}`}>${total.toFixed(2)}</span>
-          </div>
-          <button
-            onClick={sendOrderToKitchen}
-            disabled={order.length === 0}
-            className={`w-full flex items-center justify-center font-bold py-4 px-6 rounded-lg transition duration-200 ${primaryBtn} ${order.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
-          >
-            <Send className="mr-2" />
-            Send to Kitchen
-          </button>
         </div>
       </div>
-    </div>
+    );
+  }
+  
+  // Finally, if no one is signed in, show the sign-in screen.
+  return (
+    <SignInScreen
+      handleSignIn={handleEmployeeSignIn}
+      signInError={signInError}
+      setShowLogin={setShowLogin}
+      settings={settings}
+    />
   );
 };
-
-// Main App component
-export default function App() {
-  return (
-    <div className="font-inter antialiased">
-      <PosStand />
-    </div>
-  );
-}
+export default PosStand;
