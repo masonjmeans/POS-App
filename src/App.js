@@ -1,362 +1,755 @@
 import React, { useState, useEffect } from 'react';
+import { initializeApp } from 'firebase/app';
+import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
+import { getFirestore, collection, addDoc, Timestamp, onSnapshot, doc, setDoc, deleteDoc, getDocs } from 'firebase/firestore';
+import { ShoppingCart, X, PlusCircle, MinusCircle, Send, Trash2, Settings, ArrowLeft, Plus, Edit, Save, Eraser, LogIn, LogOut, Brush, Users, Store, Utensils } from 'lucide-react';
 
-// Main App component
-const App = () => {
-  // State to hold the list of available products
-  const [products, setProducts] = useState([
-    { id: 1, name: 'Basic Software License', price: 29.99 },
-    { id: 2, name: 'Pro Software License', price: 99.99 },
-    { id: 3, name: 'Enterprise Software Suite', price: 249.99 },
-    { id: 4, name: 'Installation Service (per hour)', price: 75.00 },
-  ]);
+// Admin Panel Component with new features
+const AdminPanel = ({ setShowAdminPanel, db, appId, menuItems, employees, settings, refreshData }) => {
+  // Menu Item Management States
+  const [newItem, setNewItem] = useState({ name: '', price: '', category: 'Main' });
+  const [editingItem, setEditingItem] = useState(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState(null);
 
-  // State to hold items in the current cart/sale
-  const [cart, setCart] = useState([]);
+  // Employee Management States
+  const [newEmployee, setNewEmployee] = useState({ username: '', password: '' });
+  const [employeeToDelete, setEmployeeToDelete] = useState(null);
+  const [showEmployeeConfirmModal, setShowEmployeeConfirmModal] = useState(false);
 
-  // State for discount and totals
-  const [discount, setDiscount] = useState(0);
-  const [subtotal, setSubtotal] = useState(0);
-  const [tax, setTax] = useState(0);
-  const [total, setTotal] = useState(0);
+  // Business Settings States
+  const [businessSettings, setBusinessSettings] = useState(settings);
 
-  // New state for user roles: 'admin' or 'employee'
-  const [userRole, setUserRole] = useState('employee');
-
-  // New state for admin panel inputs
-  const [newProductName, setNewProductName] = useState('');
-  const [newProductPrice, setNewProductPrice] = useState('');
-
-  // New states for the PIN login functionality
-  const [showPinInput, setShowPinInput] = useState(false);
-  const [pinInput, setPinInput] = useState('');
-  const [pinError, setPinError] = useState('');
-
-  // Constants for tax rate and currency formatting
-  const TAX_RATE = 0.0825; // 8.25% tax rate
-  const ADMIN_PIN = '1234'; // The hardcoded PIN for admin access
-  const formatCurrency = (amount) => `$${amount.toFixed(2)}`;
-
-  // useEffect hook to re-calculate all totals whenever the cart or discount changes
-  useEffect(() => {
-    // Calculate the subtotal (sum of all item prices in the cart)
-    const newSubtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-
-    // Apply the discount to the subtotal
-    const discountAmount = newSubtotal * (discount / 100);
-    const subtotalAfterDiscount = newSubtotal - discountAmount;
-
-    // Calculate tax on the discounted subtotal
-    const newTax = subtotalAfterDiscount * TAX_RATE;
-
-    // Calculate the final total
-    const newTotal = subtotalAfterDiscount + newTax;
-
-    // Update the state with the new values
-    setSubtotal(newSubtotal);
-    setTax(newTax);
-    setTotal(newTotal);
-  }, [cart, discount]); // Dependency array: this effect runs when 'cart' or 'discount' changes
-
-  // Function to add a product to the cart
-  const addToCart = (productToAdd) => {
-    // Check if the product already exists in the cart
-    const existingItem = cart.find(item => item.id === productToAdd.id);
-
-    if (existingItem) {
-      // If it exists, update its quantity
-      setCart(cart.map(item =>
-        item.id === productToAdd.id
-          ? { ...item, quantity: item.quantity + 1 } // Increment quantity
-          : item
-      ));
-    } else {
-      // If it's a new item, add it with quantity 1
-      setCart([...cart, { ...productToAdd, quantity: 1 }]);
-    }
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setNewItem(prev => ({ ...prev, [name]: value }));
   };
 
-  // Function to remove an item or decrease its quantity from the cart
-  const updateQuantity = (itemId, change) => {
-    setCart(cart.map(item => {
-      if (item.id === itemId) {
-        const newQuantity = item.quantity + change;
-        // If new quantity is 0 or less, filter out the item
-        return newQuantity > 0 ? { ...item, quantity: newQuantity } : null;
+  const handleEditChange = (e) => {
+    const { name, value } = e.target;
+    setEditingItem(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleEmployeeChange = (e) => {
+    const { name, value } = e.target;
+    setNewEmployee(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSettingsChange = (e) => {
+    const { name, value } = e.target;
+    setBusinessSettings(prev => ({ ...prev, [name]: value }));
+  };
+
+  // Add/Update/Delete Menu Items
+  const addItem = async (e) => {
+    e.preventDefault();
+    if (newItem.name && newItem.price) {
+      try {
+        const itemToAdd = {
+          name: newItem.name,
+          price: parseFloat(newItem.price),
+          category: newItem.category,
+        };
+        await addDoc(collection(db, `artifacts/${appId}/public/data/menuItems`), itemToAdd);
+        setNewItem({ name: '', price: '', category: 'Main' });
+        console.log("New menu item added.");
+      } catch (error) {
+        console.error("Error adding menu item:", error);
       }
-      return item;
-    }).filter(Boolean)); // Filter out nulls (items with quantity 0)
-  };
-
-  // Function to handle changes in the discount input field
-  const handleDiscountChange = (e) => {
-    const value = e.target.value;
-    // Ensure the value is a number and within a reasonable range (0-100)
-    if (value === '' || (!isNaN(value) && value >= 0 && value <= 100)) {
-      setDiscount(Number(value));
     }
   };
 
-  // Function to handle the PIN submission
-  const handlePinSubmit = () => {
-    if (pinInput === ADMIN_PIN) {
-      setUserRole('admin');
-      setShowPinInput(false);
-      setPinInput('');
-      setPinError('');
-    } else {
-      setPinError('Incorrect PIN. Please try again.');
-      setPinInput(''); // Clear the input for a new attempt
+  const startEditing = (item) => {
+    setEditingItem({ ...item });
+  };
+
+  const cancelEditing = () => {
+    setEditingItem(null);
+  };
+
+  const updateItem = async (e) => {
+    e.preventDefault();
+    if (editingItem) {
+      try {
+        const itemRef = doc(db, `artifacts/${appId}/public/data/menuItems`, editingItem.id);
+        await setDoc(itemRef, {
+          name: editingItem.name,
+          price: parseFloat(editingItem.price),
+          category: editingItem.category
+        }, { merge: true });
+        setEditingItem(null);
+        console.log("Menu item updated.");
+      } catch (error) {
+        console.error("Error updating menu item:", error);
+      }
     }
   };
 
-  // Function to clear the entire cart (e.g., after a sale)
-  const clearCart = () => {
-    setCart([]);
-    setDiscount(0);
-    setSubtotal(0);
-    setTax(0);
-    setTotal(0);
+  const handleDeleteClick = (item) => {
+    setItemToDelete(item);
+    setShowConfirmModal(true);
   };
 
-  // Function to add a new product via the admin panel
-  const addProduct = () => {
-    if (newProductName && newProductPrice > 0) {
-      const newProduct = {
-        id: products.length + 1,
-        name: newProductName,
-        price: Number(newProductPrice)
-      };
-      setProducts([...products, newProduct]);
-      setNewProductName('');
-      setNewProductPrice('');
+  const confirmDelete = async () => {
+    if (itemToDelete) {
+      try {
+        await deleteDoc(doc(db, `artifacts/${appId}/public/data/menuItems`, itemToDelete.id));
+        console.log("Menu item deleted.");
+      } catch (error) {
+        console.error("Error deleting menu item:", error);
+      } finally {
+        setShowConfirmModal(false);
+        setItemToDelete(null);
+      }
+    }
+  };
+  
+  // Add/Delete Employees
+  const addEmployee = async (e) => {
+    e.preventDefault();
+    if (newEmployee.username && newEmployee.password) {
+      try {
+        // In a real app, you would hash the password before saving
+        await addDoc(collection(db, `artifacts/${appId}/public/data/employees`), newEmployee);
+        setNewEmployee({ username: '', password: '' });
+        refreshData(); // Refresh the employee list
+        console.log("New employee added.");
+      } catch (error) {
+        console.error("Error adding employee:", error);
+      }
     }
   };
 
-  // Function to remove a product via the admin panel
-  const removeProduct = (id) => {
-    setProducts(products.filter(product => product.id !== id));
-    setCart(cart.filter(item => item.id !== id));
+  const handleDeleteEmployeeClick = (employee) => {
+    setEmployeeToDelete(employee);
+    setShowEmployeeConfirmModal(true);
   };
 
+  const confirmEmployeeDelete = async () => {
+    if (employeeToDelete) {
+      try {
+        await deleteDoc(doc(db, `artifacts/${appId}/public/data/employees`, employeeToDelete.id));
+        refreshData(); // Refresh the employee list
+        console.log("Employee deleted.");
+      } catch (error) {
+        console.error("Error deleting employee:", error);
+      } finally {
+        setShowEmployeeConfirmModal(false);
+        setEmployeeToDelete(null);
+      }
+    }
+  };
+
+  // Update Business Settings
+  const saveSettings = async (e) => {
+    e.preventDefault();
+    try {
+      const settingsRef = doc(db, `artifacts/${appId}/public/data/settings`, 'business');
+      await setDoc(settingsRef, businessSettings, { merge: true });
+      console.log("Business settings updated.");
+      refreshData(); // Refresh main app with new settings
+    } catch (error) {
+      console.error("Error saving settings:", error);
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-blue-100 p-4 font-inter">
-      {/* Page Title */}
-      <div className="flex justify-between items-center mb-8 mt-4 rounded-lg bg-white bg-opacity-80 p-4 shadow-xl">
-        <h1 className="text-4xl font-extrabold text-indigo-800">
-          Software POS Stand
-        </h1>
-        {userRole === 'admin' ? (
-          <button
-            onClick={() => setUserRole('employee')}
-            className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-200"
-          >
-            Switch to Employee
+    <div className="flex-1 p-6 lg:p-10 bg-gray-900 text-white font-inter min-h-screen relative">
+      <div className="flex items-center gap-4 mb-8">
+        <button
+          onClick={() => setShowAdminPanel(false)}
+          className="p-3 rounded-full bg-gray-800 hover:bg-gray-700 transition"
+        >
+          <ArrowLeft size={24} />
+        </button>
+        <h1 className="text-4xl lg:text-5xl font-extrabold text-teal-400">Admin Controls</h1>
+      </div>
+
+      {/* Business Settings Section */}
+      <div className="bg-gray-800 p-8 rounded-xl shadow-lg mb-8">
+        <h2 className="text-2xl font-bold text-gray-200 mb-4 border-b pb-2 border-gray-700 flex items-center gap-2">
+          <Settings size={24} />
+          Business Settings
+        </h2>
+        <form onSubmit={saveSettings} className="space-y-4">
+          <div>
+            <label className="block text-gray-400 mb-2">Business Name</label>
+            <input
+              type="text"
+              name="businessName"
+              value={businessSettings.businessName}
+              onChange={handleSettingsChange}
+              placeholder="Business Name"
+              required
+              className="w-full bg-gray-700 text-gray-200 p-3 rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-teal-500"
+            />
+          </div>
+          <div>
+            <label className="block text-gray-400 mb-2">Color Theme</label>
+            <select
+              name="colorTheme"
+              value={businessSettings.colorTheme}
+              onChange={handleSettingsChange}
+              className="w-full bg-gray-700 text-gray-200 p-3 rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-teal-500"
+            >
+              <option value="teal">Teal</option>
+              <option value="blue">Blue</option>
+              <option value="purple">Purple</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-gray-400 mb-2">App Type</label>
+            <div className="flex items-center space-x-4">
+              <button
+                type="button"
+                onClick={() => setBusinessSettings(prev => ({ ...prev, appType: 'Restaurant' }))}
+                className={`flex-1 flex items-center justify-center p-3 rounded-lg transition ${businessSettings.appType === 'Restaurant' ? 'bg-teal-600 text-white' : 'bg-gray-700 text-gray-400'}`}
+              >
+                <Utensils className="mr-2" />
+                Restaurant
+              </button>
+              <button
+                type="button"
+                onClick={() => setBusinessSettings(prev => ({ ...prev, appType: 'Business' }))}
+                className={`flex-1 flex items-center justify-center p-3 rounded-lg transition ${businessSettings.appType === 'Business' ? 'bg-teal-600 text-white' : 'bg-gray-700 text-gray-400'}`}
+              >
+                <Store className="mr-2" />
+                Business
+              </button>
+            </div>
+          </div>
+          <button type="submit" className="w-full flex items-center justify-center font-bold py-3 px-6 rounded-lg transition duration-200 bg-teal-600 hover:bg-teal-700 text-white shadow-lg">
+            <Save className="mr-2" />
+            Save Settings
           </button>
+        </form>
+      </div>
+
+      {/* Menu Item Management Section */}
+      <div className="bg-gray-800 p-8 rounded-xl shadow-lg mb-8">
+        <h2 className="text-2xl font-bold text-gray-200 mb-4 border-b pb-2 border-gray-700 flex items-center gap-2">
+          <Utensils size={24} />
+          Menu Item Management
+        </h2>
+        <form onSubmit={addItem} className="space-y-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <input type="text" name="name" value={newItem.name} onChange={handleInputChange} placeholder="Item Name" required className="bg-gray-700 text-gray-200 p-3 rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-teal-500" />
+            <input type="number" name="price" value={newItem.price} onChange={handleInputChange} placeholder="Price" step="0.01" required className="bg-gray-700 text-gray-200 p-3 rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-teal-500" />
+            <select name="category" value={newItem.category} onChange={handleInputChange} className="bg-gray-700 text-gray-200 p-3 rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-teal-500">
+              <option value="Main">Main</option>
+              <option value="Side">Side</option>
+              <option value="Drink">Drink</option>
+            </select>
+          </div>
+          <button type="submit" className="w-full flex items-center justify-center font-bold py-3 px-6 rounded-lg transition duration-200 bg-teal-600 hover:bg-teal-700 text-white shadow-lg">
+            <Plus className="mr-2" />
+            Add Menu Item
+          </button>
+        </form>
+        {menuItems.length === 0 ? (
+          <p className="text-gray-500 text-center py-4">No menu items found. Add some above!</p>
         ) : (
-          <button
-            onClick={() => setShowPinInput(true)}
-            className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-200"
-          >
-            Switch to Admin
+          <div className="space-y-3">
+            {menuItems.map(item => (
+              <div key={item.id} className="flex flex-col md:flex-row items-start md:items-center justify-between bg-gray-700 p-4 rounded-lg shadow-md">
+                {editingItem?.id === item.id ? (
+                  <form onSubmit={updateItem} className="flex flex-col md:flex-row items-center justify-between w-full gap-2">
+                    <div className="flex-1 flex flex-col md:flex-row gap-2 w-full">
+                      <input type="text" name="name" value={editingItem.name} onChange={handleEditChange} className="bg-gray-600 text-white p-2 rounded-lg flex-1" required />
+                      <input type="number" name="price" value={editingItem.price} onChange={handleEditChange} step="0.01" className="bg-gray-600 text-white p-2 rounded-lg w-24" required />
+                      <select name="category" value={editingItem.category} onChange={handleEditChange} className="bg-gray-600 text-white p-2 rounded-lg">
+                        <option value="Main">Main</option>
+                        <option value="Side">Side</option>
+                        <option value="Drink">Drink</option>
+                      </select>
+                    </div>
+                    <div className="flex-shrink-0 flex items-center gap-2 mt-2 md:mt-0">
+                      <button type="submit" className="p-2 rounded-full bg-green-600 hover:bg-green-700 transition">
+                        <Save size={20} />
+                      </button>
+                      <button type="button" onClick={cancelEditing} className="p-2 rounded-full bg-gray-600 hover:bg-gray-500 transition">
+                        <Eraser size={20} />
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <>
+                    <div className="flex-1">
+                      <h3 className="text-lg font-semibold text-gray-200">{item.name}</h3>
+                      <p className="text-sm text-gray-400">{item.category}</p>
+                    </div>
+                    <div className="flex items-center gap-4 mt-2 md:mt-0">
+                      <span className="text-xl font-bold text-green-400">${item.price.toFixed(2)}</span>
+                      <button onClick={() => startEditing(item)} className="p-2 rounded-full bg-blue-600 hover:bg-blue-700 transition">
+                        <Edit size={20} />
+                      </button>
+                      <button onClick={() => handleDeleteClick(item)} className="p-2 rounded-full bg-red-600 hover:bg-red-700 transition">
+                        <Trash2 size={20} />
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      
+      {/* Employee Management Section */}
+      <div className="bg-gray-800 p-8 rounded-xl shadow-lg">
+        <h2 className="text-2xl font-bold text-gray-200 mb-4 border-b pb-2 border-gray-700 flex items-center gap-2">
+          <Users size={24} />
+          Employee Management
+        </h2>
+        <form onSubmit={addEmployee} className="space-y-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <input type="text" name="username" value={newEmployee.username} onChange={handleEmployeeChange} placeholder="Username" required className="bg-gray-700 text-gray-200 p-3 rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-teal-500" />
+            <input type="password" name="password" value={newEmployee.password} onChange={handleEmployeeChange} placeholder="Password" required className="bg-gray-700 text-gray-200 p-3 rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-teal-500" />
+          </div>
+          <button type="submit" className="w-full flex items-center justify-center font-bold py-3 px-6 rounded-lg transition duration-200 bg-teal-600 hover:bg-teal-700 text-white shadow-lg">
+            <Plus className="mr-2" />
+            Add Employee
           </button>
+        </form>
+        {employees.length === 0 ? (
+          <p className="text-gray-500 text-center py-4">No employees found. Add one above!</p>
+        ) : (
+          <div className="space-y-3">
+            {employees.map(employee => (
+              <div key={employee.id} className="flex items-center justify-between bg-gray-700 p-4 rounded-lg shadow-md">
+                <span className="text-lg font-semibold text-gray-200">{employee.username}</span>
+                <button onClick={() => handleDeleteEmployeeClick(employee)} className="p-2 rounded-full bg-red-600 hover:bg-red-700 transition">
+                  <Trash2 size={20} />
+                </button>
+              </div>
+            ))}
+          </div>
         )}
       </div>
 
-      {/* PIN Input Modal */}
-      {showPinInput && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-xl shadow-2xl border border-purple-300">
-            <h3 className="text-xl font-bold text-purple-700 mb-4">Enter Admin PIN</h3>
-            <input
-              type="password"
-              value={pinInput}
-              onChange={(e) => setPinInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') handlePinSubmit(); }}
-              className={`w-full p-2 rounded-lg border-2 mb-2 focus:outline-none ${pinError ? 'border-red-500' : 'border-purple-300 focus:ring-2 focus:ring-purple-500'}`}
-              placeholder="••••"
-            />
-            {pinError && <p className="text-red-500 text-sm mb-2">{pinError}</p>}
-            <div className="flex gap-2">
-              <button
-                onClick={handlePinSubmit}
-                className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md"
-              >
-                Submit
-              </button>
-              <button
-                onClick={() => setShowPinInput(false)}
-                className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg shadow-md"
-              >
-                Cancel
-              </button>
+      {showConfirmModal && (
+        <div className="absolute inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4">
+          <div className="bg-gray-800 p-6 rounded-xl shadow-2xl max-w-sm w-full">
+            <h3 className="text-xl font-bold text-gray-200 mb-4">Confirm Deletion</h3>
+            <p className="text-gray-400 mb-6">Are you sure you want to delete "{itemToDelete?.name}"? This action cannot be undone.</p>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setShowConfirmModal(false)} className="px-4 py-2 rounded-lg text-gray-400 hover:bg-gray-700 transition">Cancel</button>
+              <button onClick={confirmDelete} className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white transition">Delete</button>
             </div>
           </div>
         </div>
       )}
+      
+      {showEmployeeConfirmModal && (
+        <div className="absolute inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4">
+          <div className="bg-gray-800 p-6 rounded-xl shadow-2xl max-w-sm w-full">
+            <h3 className="text-xl font-bold text-gray-200 mb-4">Confirm Employee Deletion</h3>
+            <p className="text-gray-400 mb-6">Are you sure you want to delete employee "{employeeToDelete?.username}"? This action cannot be undone.</p>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setShowEmployeeConfirmModal(false)} className="px-4 py-2 rounded-lg text-gray-400 hover:bg-gray-700 transition">Cancel</button>
+              <button onClick={confirmEmployeeDelete} className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white transition">Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
-      <div className="flex flex-col lg:flex-row gap-6 max-w-7xl mx-auto">
-        {/* Conditional rendering based on userRole */}
-        {userRole === 'admin' ? (
-          /* Admin Panel */
-          <div className="flex-1 bg-white p-6 rounded-2xl shadow-xl border border-blue-200">
-            <h2 className="text-2xl font-bold text-purple-700 mb-5 pb-3 border-b-2 border-purple-300">
-              Admin Panel
-            </h2>
+// Employee Sign-in Screen
+const SignInScreen = ({ handleSignIn, signInError }) => {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
 
-            {/* Add New Product Section */}
-            <div className="mb-6">
-              <h3 className="text-xl font-semibold text-purple-600 mb-3">Add New Product</h3>
-              <div className="flex flex-col md:flex-row gap-4 mb-4">
-                <input
-                  type="text"
-                  placeholder="Product Name"
-                  value={newProductName}
-                  onChange={(e) => setNewProductName(e.target.value)}
-                  className="flex-1 p-2 rounded-lg border-2 border-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                />
-                <input
-                  type="number"
-                  placeholder="Price"
-                  value={newProductPrice}
-                  onChange={(e) => setNewProductPrice(e.target.value)}
-                  min="0"
-                  className="w-full md:w-28 p-2 rounded-lg border-2 border-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                />
-                <button
-                  onClick={addProduct}
-                  className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-200"
-                >
-                  Add
-                </button>
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    handleSignIn(username, password);
+  };
+
+  return (
+    <div className="flex items-center justify-center min-h-screen bg-gray-900 text-white font-inter">
+      <div className="bg-gray-800 p-8 rounded-xl shadow-lg max-w-sm w-full">
+        <div className="flex flex-col items-center mb-6">
+          <LogIn size={48} className="text-teal-400 mb-4" />
+          <h2 className="text-3xl font-bold text-teal-400">Employee Sign In</h2>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Username" className="w-full bg-gray-700 text-gray-200 p-3 rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-teal-500" required />
+          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" className="w-full bg-gray-700 text-gray-200 p-3 rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-teal-500" required />
+          {signInError && <p className="text-red-400 text-sm text-center">{signInError}</p>}
+          <button type="submit" className="w-full mt-4 flex items-center justify-center font-bold py-3 px-6 rounded-lg transition duration-200 bg-teal-600 hover:bg-teal-700 text-white shadow-lg">Sign In</button>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+const PosStand = () => {
+  const [order, setOrder] = useState([]);
+  const [db, setDb] = useState(null);
+  const [appId, setAppId] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [isAuthReady, setIsAuthReady] = useState(false);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
+  
+  // Data from Firestore
+  const [menuItems, setMenuItems] = useState([]);
+  const [employees, setEmployees] = useState([]);
+  const [settings, setSettings] = useState({
+    businessName: 'My Business',
+    colorTheme: 'teal',
+    appType: 'Restaurant',
+  });
+
+  // State for employee sign-in
+  const [isEmployeeSignedIn, setIsEmployeeSignedIn] = useState(false);
+  const [signInError, setSignInError] = useState('');
+  
+  // State for password-protected admin access
+  const [showLogin, setShowLogin] = useState(false);
+  const [password, setPassword] = useState('');
+  const [loginError, setLoginError] = useState('');
+  const adminPassword = 'Means';
+
+  // Effect to initialize Firebase and handle authentication
+  useEffect(() => {
+    if (typeof __firebase_config === 'undefined' || typeof __app_id === 'undefined') {
+      console.error('Firebase configuration and app ID are not defined.');
+      return;
+    }
+    
+    try {
+      const firebaseConfig = JSON.parse(__firebase_config);
+      const app = initializeApp(firebaseConfig);
+      const firestore = getFirestore(app);
+      const auth = getAuth(app);
+      setDb(firestore);
+      setAppId(typeof __app_id !== 'undefined' ? __app_id : 'default-app-id');
+      
+      const unsubscribe = onAuthStateChanged(auth, async (user) => {
+        if (user) {
+          setIsAuthReady(true);
+          setLoading(false);
+        } else {
+          try {
+            if (typeof __initial_auth_token !== 'undefined') {
+              await signInWithCustomToken(auth, __initial_auth_token);
+            } else {
+              await signInAnonymously(auth);
+            }
+          } catch (error) {
+            console.error('Error during anonymous sign-in:', error);
+            setLoading(false);
+          }
+        }
+      });
+      return () => unsubscribe();
+    } catch (error) {
+      console.error('Failed to initialize Firebase:', error);
+      setLoading(false);
+    }
+  }, []);
+
+  // Function to fetch all data from Firestore
+  const fetchData = async () => {
+    if (!db || !appId || !isAuthReady) return;
+
+    // Fetch menu items
+    const menuRef = collection(db, `artifacts/${appId}/public/data/menuItems`);
+    const unsubscribeMenu = onSnapshot(menuRef, (snapshot) => {
+      const fetchedItems = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setMenuItems(fetchedItems);
+    }, (error) => {
+      console.error("Error fetching menu items:", error);
+    });
+
+    // Fetch employees
+    const employeesRef = collection(db, `artifacts/${appId}/public/data/employees`);
+    const unsubscribeEmployees = onSnapshot(employeesRef, (snapshot) => {
+      const fetchedEmployees = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setEmployees(fetchedEmployees);
+    }, (error) => {
+      console.error("Error fetching employees:", error);
+    });
+
+    // Fetch settings
+    const settingsRef = doc(db, `artifacts/${appId}/public/data/settings`, 'business');
+    const unsubscribeSettings = onSnapshot(settingsRef, (docSnap) => {
+      if (docSnap.exists()) {
+        setSettings(docSnap.data());
+      } else {
+        console.log("No business settings found, using defaults.");
+        // Set default settings if none exist
+        setDoc(settingsRef, settings);
+      }
+    }, (error) => {
+      console.error("Error fetching settings:", error);
+    });
+
+    return () => {
+      unsubscribeMenu();
+      unsubscribeEmployees();
+      unsubscribeSettings();
+    };
+  };
+
+  // Effect to fetch and listen for all data after auth is ready
+  useEffect(() => {
+    let unsubscribe;
+    if (db && appId && isAuthReady) {
+      unsubscribe = fetchData();
+    }
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [db, appId, isAuthReady]);
+
+  // Handle employee sign-in
+  const handleEmployeeSignIn = async (username, password) => {
+    const employee = employees.find(emp => emp.username === username && emp.password === password);
+    if (employee) {
+      setIsEmployeeSignedIn(true);
+      setSignInError('');
+    } else {
+      setSignInError('Invalid username or password.');
+    }
+  };
+
+  const handleEmployeeSignOut = () => {
+    setIsEmployeeSignedIn(false);
+    setOrder([]); // Clear the order on sign out
+  };
+
+  // Handle password submission for admin access
+  const handleAdminLogin = (e) => {
+    e.preventDefault();
+    if (password === adminPassword) {
+      setShowLogin(false);
+      setShowAdminPanel(true);
+      setPassword('');
+      setLoginError('');
+    } else {
+      setLoginError('Invalid password. Please try again.');
+    }
+  };
+
+  // Function to add or update an item in the current order
+  const addItemToOrder = (item) => {
+    setOrder(prevOrder => {
+      const existingItemIndex = prevOrder.findIndex(orderItem => orderItem.id === item.id);
+      if (existingItemIndex > -1) {
+        const newOrder = [...prevOrder];
+        const updatedItem = { ...newOrder[existingItemIndex], quantity: newOrder[existingItemIndex].quantity + 1 };
+        newOrder.splice(existingItemIndex, 1, updatedItem);
+        return newOrder;
+      } else {
+        return [...prevOrder, { ...item, quantity: 1 }];
+      }
+    });
+  };
+
+  // Function to change the quantity of an item
+  const updateItemQuantity = (itemId, change) => {
+    setOrder(prevOrder => {
+      const newOrder = prevOrder.map(item =>
+        item.id === itemId
+          ? { ...item, quantity: Math.max(0, item.quantity + change) }
+          : item
+      ).filter(item => item.quantity > 0);
+      return newOrder;
+    });
+  };
+
+  // Function to remove an item from the order
+  const removeItemFromOrder = (itemId) => {
+    setOrder(prevOrder => prevOrder.filter(item => item.id !== itemId));
+  };
+
+  // Function to clear the entire order
+  const clearOrder = () => {
+    setOrder([]);
+  };
+
+  // Function to send the order to the kitchen (save to Firestore)
+  const sendOrderToKitchen = async () => {
+    if (!db || order.length === 0) {
+      console.log('No order to send or database not initialized.');
+      return;
+    }
+
+    const tableNumber = Math.floor(Math.random() * 100) + 1;
+
+    const newOrder = {
+      tableNumber,
+      items: order,
+      status: 'pending',
+      timestamp: Timestamp.now(),
+    };
+
+    try {
+      const docRef = await addDoc(collection(db, `artifacts/${appId}/public/data/orders`), newOrder);
+      console.log('Order sent to kitchen with ID:', docRef.id);
+      clearOrder();
+    } catch (e) {
+      console.error('Error adding document: ', e);
+    }
+  };
+
+  const subtotal = order.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+  const taxRate = 0.08;
+  const tax = subtotal * taxRate;
+  const total = subtotal + tax;
+
+  // Set theme class based on settings
+  const themeClass = {
+    'teal': 'bg-teal-600 hover:bg-teal-700',
+    'blue': 'bg-blue-600 hover:bg-blue-700',
+    'purple': 'bg-purple-600 hover:bg-purple-700'
+  }[settings.colorTheme];
+  const highlightClass = {
+    'teal': 'text-teal-400',
+    'blue': 'text-blue-400',
+    'purple': 'text-purple-400'
+  }[settings.colorTheme];
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-900 text-teal-400">
+        <div className="flex flex-col items-center">
+          <svg className="animate-spin h-12 w-12 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <p className="mt-4 text-xl">Loading POS...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Conditional rendering for Admin Panel
+  if (showAdminPanel) {
+    return <AdminPanel setShowAdminPanel={setShowAdminPanel} db={db} appId={appId} menuItems={menuItems} employees={employees} settings={settings} refreshData={fetchData} />;
+  }
+  
+  // Conditional rendering for Login Screen
+  if (showLogin) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-900 text-white font-inter">
+        <div className="bg-gray-800 p-8 rounded-xl shadow-lg max-w-sm w-full">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold ${highlightClass}">Admin Login</h2>
+            <button onClick={() => setShowLogin(false)} className="p-2 rounded-full bg-gray-700 hover:bg-gray-600 transition"><X size={24} /></button>
+          </div>
+          <form onSubmit={handleAdminLogin}>
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter password" className="w-full bg-gray-700 text-gray-200 p-3 rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-${settings.colorTheme}-500" />
+            {loginError && <p className="text-red-400 text-sm mt-2">{loginError}</p>}
+            <button type="submit" className={`w-full mt-4 flex items-center justify-center font-bold py-3 px-6 rounded-lg transition duration-200 ${themeClass} text-white shadow-lg`}>
+              <Settings className="mr-2" />
+              Unlock Admin Panel
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  // Show employee sign-in screen if not signed in
+  if (!isEmployeeSignedIn) {
+    return <SignInScreen handleSignIn={handleEmployeeSignIn} signInError={signInError} />;
+  }
+
+  return (
+    <div className={`flex min-h-screen bg-gray-900 text-white font-inter theme-${settings.colorTheme}`}>
+      {/* Main Menu Area */}
+      <div className="flex-1 p-6 lg:p-10">
+        <h1 className={`text-4xl lg:text-5xl font-extrabold ${highlightClass} mb-6`}>
+          {settings.businessName}
+        </h1>
+        <p className="text-xl text-gray-400 mb-8">{settings.appType} POS Stand</p>
+        
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {menuItems.map(item => (
+            <button key={item.id} onClick={() => addItemToOrder(item)} className="bg-gray-800 p-4 rounded-xl shadow-lg hover:bg-gray-700 transition duration-200 ease-in-out transform hover:scale-105 border border-gray-700 flex flex-col justify-between">
+              <div className="text-left">
+                <h3 className="text-xl font-bold text-gray-200">{item.name}</h3>
+                <p className="text-sm text-gray-400 mt-1">{item.category}</p>
               </div>
-            </div>
+              <p className="text-right text-3xl font-black text-green-400 mt-2">${item.price.toFixed(2)}</p>
+            </button>
+          ))}
+        </div>
+      </div>
 
-            {/* Current Products List */}
-            <div>
-              <h3 className="text-xl font-semibold text-purple-600 mb-3">Current Products</h3>
-              {products.map(product => (
-                <div key={product.id} className="flex justify-between items-center bg-gray-50 p-3 rounded-lg mb-2 shadow-sm border border-gray-200">
-                  <div className="flex-1">
-                    <p className="font-medium text-purple-800">{product.name}</p>
-                    <p className="text-sm text-gray-600">{formatCurrency(product.price)}</p>
-                  </div>
-                  <button
-                    onClick={() => removeProduct(product.id)}
-                    className="bg-red-500 hover:bg-red-600 text-white font-bold py-1 px-3 rounded-lg shadow-sm"
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : (
-          /* Employee View: Products Section */
-          <div className="flex-1 bg-white p-6 rounded-2xl shadow-xl border border-blue-200">
-            <h2 className="text-2xl font-bold text-indigo-700 mb-5 pb-3 border-b-2 border-blue-300">
-              Available Software Products
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {products.map(product => (
-                <div key={product.id} className="bg-blue-50 p-4 rounded-xl shadow-md flex flex-col justify-between transform transition duration-300 hover:scale-105 hover:shadow-lg border border-blue-200">
-                  <div>
-                    <h3 className="font-semibold text-indigo-900 mb-1">{product.name}</h3>
-                    <p className="text-blue-700 text-xl font-bold">{formatCurrency(product.price)}</p>
-                  </div>
-                  <button
-                    onClick={() => addToCart(product)}
-                    className="mt-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-200 ease-in-out transform hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-75"
-                  >
-                    Add to Cart
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Cart/Sale Section - Visible to both */}
-        <div className="w-full lg:w-96 bg-white p-6 rounded-2xl shadow-xl border border-blue-200 flex flex-col">
-          <h2 className="text-2xl font-bold text-indigo-700 mb-5 pb-3 border-b-2 border-blue-300">
-            Current Sale
+      {/* Order Summary Sidebar */}
+      <div className="w-full lg:w-1/3 bg-gray-800 p-6 lg:p-8 flex flex-col shadow-2xl">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className={`text-3xl lg:text-4xl font-extrabold ${highlightClass}`}>
+            <ShoppingCart className="inline-block mr-2" />
+            Current Order
           </h2>
-          {cart.length === 0 ? (
-            <p className="text-gray-500 text-center flex-grow flex items-center justify-center">Cart is empty. Add some products!</p>
+          <div className="flex items-center space-x-2">
+            <button onClick={() => setShowLogin(true)} className="p-2 rounded-full bg-gray-700 hover:bg-gray-600 transition" aria-label="Open Admin Controls">
+              <Settings size={24} className="text-gray-400" />
+            </button>
+            <button onClick={handleEmployeeSignOut} className="p-2 rounded-full bg-gray-700 hover:bg-gray-600 transition" aria-label="Sign Out">
+              <LogOut size={24} className="text-gray-400" />
+            </button>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto mb-6 pr-2">
+          {order.length === 0 ? (
+            <div className="text-center text-gray-500 text-lg py-12">
+              <p>Your order is empty.</p>
+              <p>Add items from the menu!</p>
+            </div>
           ) : (
-            <div className="flex-grow overflow-y-auto mb-4">
-              {cart.map(item => (
-                <div key={item.id} className="flex justify-between items-center bg-blue-50 p-3 rounded-lg mb-2 shadow-sm border border-blue-100">
-                  <div className="flex-1">
-                    <p className="font-medium text-indigo-800">{item.name}</p>
-                    <p className="text-sm text-gray-600">{formatCurrency(item.price)} x {item.quantity}</p>
+            <div className="space-y-4">
+              {order.map(item => (
+                <div key={item.id} className="flex items-center justify-between bg-gray-700 p-3 rounded-lg shadow-md">
+                  <div className="flex items-center space-x-3">
+                    <button onClick={() => removeItemFromOrder(item.id)} className="text-red-400 hover:text-red-500 transition"><X size={18} /></button>
+                    <span className="text-lg font-semibold">{item.name}</span>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => updateQuantity(item.id, -1)}
-                      className="bg-red-500 hover:bg-red-600 text-white w-8 h-8 rounded-full flex items-center justify-center text-lg font-bold shadow-sm"
-                    >
-                      -
-                    </button>
-                    <span className="text-lg font-semibold text-indigo-900">{item.quantity}</span>
-                    <button
-                      onClick={() => updateQuantity(item.id, 1)}
-                      className="bg-green-500 hover:bg-green-600 text-white w-8 h-8 rounded-full flex items-center justify-center text-lg font-bold shadow-sm"
-                    >
-                      +
-                    </button>
+                  <div className="flex items-center space-x-3">
+                    <div className="flex items-center border border-gray-600 rounded-md">
+                      <button onClick={() => updateItemQuantity(item.id, -1)} className="px-2 py-1 text-gray-400 hover:text-white transition"><MinusCircle size={20} /></button>
+                      <span className="px-2 text-xl font-bold">{item.quantity}</span>
+                      <button onClick={() => updateItemQuantity(item.id, 1)} className="px-2 py-1 text-gray-400 hover:text-white transition"><PlusCircle size={20} /></button>
+                    </div>
+                    <span className="text-lg font-bold">${(item.price * item.quantity).toFixed(2)}</span>
                   </div>
                 </div>
               ))}
             </div>
           )}
+        </div>
 
-          {/* Discount and Totals Section */}
-          <div className="mt-auto pt-4 border-t-2 border-blue-300">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-lg font-medium text-indigo-900">Subtotal:</span>
-              <span className="text-lg font-bold text-indigo-900">{formatCurrency(subtotal)}</span>
-            </div>
-            
-            <div className="flex justify-between items-center mb-2">
-              <label htmlFor="discount" className="text-lg font-medium text-indigo-900">Discount (%):</label>
-              <input
-                type="number"
-                id="discount"
-                value={discount}
-                onChange={handleDiscountChange}
-                min="0"
-                max="100"
-                className="w-20 text-lg font-bold text-right px-2 py-1 rounded-lg border-2 border-blue-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-            </div>
+        <div className="border-t border-gray-600 pt-6 space-y-2">
+          <div className="flex justify-between text-xl font-medium text-gray-300"><span>Subtotal:</span><span>${subtotal.toFixed(2)}</span></div>
+          <div className="flex justify-between text-xl font-medium text-gray-300"><span>Tax (8%):</span><span>${tax.toFixed(2)}</span></div>
+          <div className="flex justify-between text-4xl font-extrabold text-green-400 mt-4"><span>Total:</span><span>${total.toFixed(2)}</span></div>
+        </div>
 
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-lg font-medium text-indigo-900">Tax ({ (TAX_RATE * 100).toFixed(2) } %):</span>
-              <span className="text-lg font-bold text-indigo-900">{formatCurrency(tax)}</span>
-            </div>
-
-            <div className="flex justify-between items-center my-4">
-              <span className="text-2xl font-bold text-indigo-900">Total:</span>
-              <span className="text-3xl font-extrabold text-green-700">{formatCurrency(total)}</span>
-            </div>
-            
-            <button
-              onClick={clearCart}
-              disabled={cart.length === 0}
-              className={`w-full py-3 px-6 rounded-lg font-bold text-lg shadow-lg transition duration-200 ease-in-out ${
-                cart.length === 0
-                  ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
-                  : 'bg-green-600 hover:bg-green-700 text-white transform hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-75'
-              }`}
-            >
-              Process Sale
-            </button>
-          </div>
+        <div className="mt-6 space-y-4">
+          <button onClick={sendOrderToKitchen} disabled={order.length === 0} className={`w-full flex items-center justify-center font-bold py-4 px-6 rounded-lg transition duration-200 ${order.length > 0 ? `${themeClass} text-white shadow-lg` : 'bg-gray-600 text-gray-400 cursor-not-allowed'}`}>
+            <Send className="mr-2" />
+            Send to Kitchen
+          </button>
+          <button onClick={clearOrder} disabled={order.length === 0} className={`w-full flex items-center justify-center font-bold py-4 px-6 rounded-lg transition duration-200 ${order.length > 0 ? 'bg-red-600 hover:bg-red-700 text-white shadow-lg' : 'bg-gray-600 text-gray-400 cursor-not-allowed'}`}>
+            <Trash2 className="mr-2" />
+            Clear Order
+          </button>
         </div>
       </div>
     </div>
   );
 };
 
-export default App; // Export the App component as default
+export default PosStand;
