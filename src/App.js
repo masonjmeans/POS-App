@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, collection, addDoc, Timestamp, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
@@ -398,8 +398,6 @@ const PosStand = () => {
   const [db, setDb] = useState(null);
   const [appId, setAppId] = useState('');
   const [loading, setLoading] = useState(true);
-  const [isAuthReady, setIsAuthReady] = useState(false);
-  const [showAdminPanel, setShowAdminPanel] = useState(false);
   
   // Data from Firestore
   const [menuItems, setMenuItems] = useState([]);
@@ -416,111 +414,107 @@ const PosStand = () => {
   
   // State for password-protected admin access
   const [showLogin, setShowLogin] = useState(false);
+  const [showAdminPanel, setShowAdminPanel] = useState(false); // <-- FIX: ADDED MISSING STATE
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const adminPassword = 'Means';
 
-  // Effect to initialize Firebase and handle authentication
+  // Combined Effect to initialize Firebase and fetch all data
   useEffect(() => {
+    console.log("Starting Firebase initialization and data fetching...");
+    
     if (typeof __firebase_config === 'undefined' || typeof __app_id === 'undefined') {
       console.error('Firebase configuration and app ID are not defined.');
+      setLoading(false);
       return;
     }
     
+    let unsubscribeMenu = () => {};
+    let unsubscribeEmployees = () => {};
+    let unsubscribeSettings = () => {};
+
     try {
       const firebaseConfig = JSON.parse(__firebase_config);
       const app = initializeApp(firebaseConfig);
       const firestore = getFirestore(app);
       const auth = getAuth(app);
       setDb(firestore);
-      setAppId(typeof __app_id !== 'undefined' ? __app_id : 'default-app-id');
+      setAppId(__app_id);
       
-      const unsubscribe = onAuthStateChanged(auth, async (user) => {
-        if (user) {
-          setIsAuthReady(true);
-          setLoading(false);
-        } else {
+      const authUnsubscribe = onAuthStateChanged(auth, async (user) => {
+        if (!user) {
           try {
+            console.log("No user found, signing in anonymously...");
             if (typeof __initial_auth_token !== 'undefined') {
               await signInWithCustomToken(auth, __initial_auth_token);
             } else {
               await signInAnonymously(auth);
             }
+            console.log("Anonymous sign-in successful.");
           } catch (error) {
             console.error('Error during anonymous sign-in:', error);
             setLoading(false);
+            return;
           }
         }
+        
+        console.log("Auth state changed. User is authenticated. Starting data listeners...");
+        // After auth is confirmed, set up Firestore listeners
+        
+        const menuRef = collection(firestore, `artifacts/${__app_id}/public/data/menuItems`);
+        unsubscribeMenu = onSnapshot(menuRef, (snapshot) => {
+          const fetchedItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          setMenuItems(fetchedItems);
+          console.log(`Fetched ${fetchedItems.length} menu items.`);
+        }, (error) => {
+          console.error("Error fetching menu items:", error);
+        });
+
+        const employeesRef = collection(firestore, `artifacts/${__app_id}/public/data/employees`);
+        unsubscribeEmployees = onSnapshot(employeesRef, (snapshot) => {
+          const fetchedEmployees = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          setEmployees(fetchedEmployees);
+          console.log(`Fetched ${fetchedEmployees.length} employees.`);
+        }, (error) => {
+          console.error("Error fetching employees:", error);
+        });
+
+        const settingsRef = doc(firestore, `artifacts/${__app_id}/public/data/settings`, 'business');
+        unsubscribeSettings = onSnapshot(settingsRef, (docSnap) => {
+          if (docSnap.exists()) {
+            const fetchedSettings = docSnap.data();
+            setSettings(fetchedSettings);
+            console.log("Fetched business settings.");
+          } else {
+            console.log("No business settings found, creating with defaults.");
+            setDoc(settingsRef, settings); // Create default settings if none exist
+          }
+        }, (error) => {
+          console.error("Error fetching settings:", error);
+        });
+
+        // All listeners are set up. We can now stop the loading state.
+        setLoading(false);
       });
-      return () => unsubscribe();
+
+      return () => {
+        console.log("Cleaning up Firebase listeners...");
+        authUnsubscribe();
+        unsubscribeMenu();
+        unsubscribeEmployees();
+        unsubscribeSettings();
+      };
     } catch (error) {
       console.error('Failed to initialize Firebase:', error);
       setLoading(false);
     }
-  }, []);
+  }, []); // Empty dependency array ensures this runs only once
 
-  // Function to fetch all data from Firestore
-  const fetchData = useCallback(() => {
-    if (!db || !appId || !isAuthReady) {
-      console.log('Database not ready, skipping data fetch.');
-      return () => {}; // Return a no-op function to prevent errors
-    }
-    
-    console.log('Fetching data...');
-    const menuRef = collection(db, `artifacts/${appId}/public/data/menuItems`);
-    const unsubscribeMenu = onSnapshot(menuRef, (snapshot) => {
-      const fetchedItems = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setMenuItems(fetchedItems);
-    }, (error) => {
-      console.error("Error fetching menu items:", error);
-    });
-
-    const employeesRef = collection(db, `artifacts/${appId}/public/data/employees`);
-    const unsubscribeEmployees = onSnapshot(employeesRef, (snapshot) => {
-      const fetchedEmployees = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setEmployees(fetchedEmployees);
-    }, (error) => {
-      console.error("Error fetching employees:", error);
-    });
-
-    const settingsRef = doc(db, `artifacts/${appId}/public/data/settings`, 'business');
-    const unsubscribeSettings = onSnapshot(settingsRef, (docSnap) => {
-      if (docSnap.exists()) {
-        setSettings(docSnap.data());
-      } else {
-        console.log("No business settings found, using defaults.");
-        setDoc(settingsRef, settings);
-      }
-    }, (error) => {
-      console.error("Error fetching settings:", error);
-    });
-
-    return () => {
-      console.log('Unsubscribing from Firestore listeners.');
-      unsubscribeMenu();
-      unsubscribeEmployees();
-      unsubscribeSettings();
-    };
-  }, [db, appId, isAuthReady, settings]);
-
-  // Effect to fetch and listen for all data after auth is ready
-  useEffect(() => {
-    let unsubscribe;
-    if (db && appId && isAuthReady) {
-      unsubscribe = fetchData();
-    }
-    return () => {
-      if (unsubscribe) {
-        unsubscribe();
-      }
-    };
-  }, [db, appId, isAuthReady, fetchData]);
+  // Function to refresh data - useful for admin panel actions
+  const refreshData = () => {
+    // This is handled by onSnapshot listeners, but a function is needed for the AdminPanel prop
+    console.log("Refresh data requested. Listeners will update automatically.");
+  };
 
   // Handle employee sign-in
   const handleEmployeeSignIn = async (username, password) => {
@@ -646,7 +640,7 @@ const PosStand = () => {
 
   // Conditional rendering for Admin Panel
   if (showAdminPanel) {
-    return <AdminPanel setShowAdminPanel={setShowAdminPanel} db={db} appId={appId} menuItems={menuItems} employees={employees} settings={settings} refreshData={fetchData} />;
+    return <AdminPanel setShowAdminPanel={setShowAdminPanel} db={db} appId={appId} menuItems={menuItems} employees={employees} settings={settings} refreshData={refreshData} />;
   }
   
   // Conditional rendering for Login Screen
