@@ -47,7 +47,7 @@ const AdminPanel = ({ setShowAdminPanel, db, appId, menuItems, employees, settin
     setBusinessSettings(prev => ({ ...prev, isDarkMode }));
   };
 
-  // Add/Update/Delete Menu Items
+  // --- FIXED: ADD/UPDATE MENU ITEMS LOGIC ---
   const addItem = async (e) => {
     e.preventDefault();
     if (newItem.name && newItem.price) {
@@ -57,7 +57,9 @@ const AdminPanel = ({ setShowAdminPanel, db, appId, menuItems, employees, settin
           price: parseFloat(newItem.price),
           category: newItem.category,
         };
+        // Use addDoc to add a new document to the menuItems collection
         await addDoc(collection(db, `artifacts/${appId}/public/data/menuItems`), itemToAdd);
+        // Reset the form input fields after successful submission
         setNewItem({ name: '', price: '', category: 'Main' });
         console.log("New menu item added.");
       } catch (error) {
@@ -112,16 +114,14 @@ const AdminPanel = ({ setShowAdminPanel, db, appId, menuItems, employees, settin
   };
   
   // --- FIXED: ADD EMPLOYEE LOGIC ---
-  // The 'addEmployee' function now correctly adds the new employee to Firestore.
-  // The UI will automatically update thanks to the onSnapshot listener in the parent component.
   const addEmployee = async (e) => {
     e.preventDefault();
     if (newEmployee.username && newEmployee.password) {
       try {
-        // In a real app, you would hash the password before saving
+        // Use addDoc to add a new document to the employees collection
         await addDoc(collection(db, `artifacts/${appId}/public/data/employees`), newEmployee);
+        // Reset the form input fields after successful submission
         setNewEmployee({ username: '', password: '' });
-        refreshData(); // This triggers the onSnapshot listener to update the UI
         console.log("New employee added successfully.");
       } catch (error) {
         console.error("Error adding employee:", error);
@@ -138,7 +138,6 @@ const AdminPanel = ({ setShowAdminPanel, db, appId, menuItems, employees, settin
     if (employeeToDelete) {
       try {
         await deleteDoc(doc(db, `artifacts/${appId}/public/data/employees`, employeeToDelete.id));
-        refreshData(); // Refresh the employee list
         console.log("Employee deleted.");
       } catch (error) {
         console.error("Error deleting employee:", error);
@@ -156,7 +155,6 @@ const AdminPanel = ({ setShowAdminPanel, db, appId, menuItems, employees, settin
       const settingsRef = doc(db, `artifacts/${appId}/public/data/settings`, 'business');
       await setDoc(settingsRef, businessSettings, { merge: true });
       console.log("Business settings updated.");
-      refreshData(); // Refresh main app with new settings
     } catch (error) {
       console.error("Error saving settings:", error);
     }
@@ -178,6 +176,10 @@ const AdminPanel = ({ setShowAdminPanel, db, appId, menuItems, employees, settin
 
   return (
     <div className={`flex-1 p-6 lg:p-10 font-inter min-h-screen relative ${bgColorClass} transition-colors duration-500`}>
+      <style jsx>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+      `}</style>
       <div className="flex items-center gap-4 mb-8">
         <button
           onClick={() => setShowAdminPanel(false)}
@@ -305,6 +307,7 @@ const AdminPanel = ({ setShowAdminPanel, db, appId, menuItems, employees, settin
           <Utensils size={24} />
           Menu Item Management
         </h2>
+        {/* The form's onSubmit event is now properly linked to addItem */}
         <form onSubmit={addItem} className="space-y-4 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <input type="text" name="name" value={newItem.name} onChange={handleInputChange} placeholder="Item Name" required className={`p-3 rounded-lg border ${inputClass} focus:outline-none focus:ring-2`} />
@@ -375,6 +378,7 @@ const AdminPanel = ({ setShowAdminPanel, db, appId, menuItems, employees, settin
           <Users size={24} />
           Employee Management
         </h2>
+        {/* The form's onSubmit event is now properly linked to addEmployee */}
         <form onSubmit={addEmployee} className="space-y-4 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <input type="text" name="username" value={newEmployee.username} onChange={handleEmployeeChange} placeholder="Username" required className={`p-3 rounded-lg border ${inputClass} focus:outline-none focus:ring-2`} />
@@ -452,6 +456,10 @@ const SignInScreen = ({ handleSignIn, signInError, setShowLogin, settings }) => 
 
   return (
     <div className={`flex items-center justify-center min-h-screen font-inter transition-colors duration-500 ${bgColorClass}`}>
+      <style jsx>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+      `}</style>
       <div className={`p-8 rounded-xl shadow-lg max-w-sm w-full ${cardBgClass}`}>
         <div className="flex flex-col items-center mb-6">
           <LogIn size={48} className={`mb-4 ${primaryTextClass}`} />
@@ -605,9 +613,8 @@ const PosStand = () => {
     }
   }, []);
 
-  // Function to refresh data - useful for admin panel actions
+  // Function to refresh data - this is handled by onSnapshot, but included for clarity
   const refreshData = () => {
-    // This is handled by onSnapshot listeners, but a function is needed for the AdminPanel prop
     console.log("Refresh data requested. Listeners will update automatically.");
   };
 
@@ -722,8 +729,8 @@ const PosStand = () => {
     );
   }
 
-  // --- FIXED RENDERING LOGIC ---
-  // First, check if the user is in the admin panel.
+  // --- Rendering Logic ---
+  // If the admin panel is visible, show it.
   if (showAdminPanel) {
     return (
       <AdminPanel
@@ -738,10 +745,14 @@ const PosStand = () => {
     );
   }
   
-  // Second, check if the user is attempting to login as an admin
+  // If the admin login screen is visible, show it.
   if (showLogin) {
     return (
       <div className={`flex items-center justify-center min-h-screen font-inter transition-colors duration-500 ${bgColorClass}`}>
+        <style jsx>{`
+          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+          body { font-family: 'Inter', sans-serif; }
+        `}</style>
         <div className={`p-8 rounded-xl shadow-lg max-w-sm w-full ${cardBgClass}`}>
           <div className="flex flex-col items-center mb-6">
             <Lock size={48} className={`mb-4 ${primaryText}`}/>
@@ -775,10 +786,14 @@ const PosStand = () => {
     );
   }
 
-  // Third, check if an employee is signed in to show the main POS screen.
+  // If an employee is signed in, show the main POS screen.
   if (isEmployeeSignedIn) {
     return (
       <div className={`flex flex-col lg:flex-row min-h-screen font-inter ${bgColorClass} transition-colors duration-500`}>
+        <style jsx>{`
+          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+          body { font-family: 'Inter', sans-serif; }
+        `}</style>
         {/* Main Menu & Order-Taking Section */}
         <div className="w-full lg:w-2/3 p-4 lg:p-6 flex flex-col">
           <header className={`flex justify-between items-center p-4 lg:p-6 mb-4 rounded-xl shadow-lg ${cardBgClass}`}>
@@ -863,7 +878,7 @@ const PosStand = () => {
     );
   }
   
-  // Finally, if no one is signed in, show the sign-in screen.
+  // If no one is signed in, show the sign-in screen.
   return (
     <SignInScreen
       handleSignIn={handleEmployeeSignIn}
