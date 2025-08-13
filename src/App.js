@@ -593,7 +593,7 @@ const PosStand = () => {
       console.error('Failed to initialize Firebase:', error);
       setLoading(false);
     }
-  }, []); // Empty dependency array ensures this runs only once
+  }, [settings]); // The fix: added 'settings' to the dependency array
 
   // Function to refresh data - useful for admin panel actions
   const refreshData = () => {
@@ -770,7 +770,7 @@ const PosStand = () => {
         
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {menuItems.map(item => (
-            <button key={item.id} onClick={() => addItemToOrder(item)} className={`p-4 rounded-xl shadow-lg transition duration-200 ease-in-out transform hover:scale-105 border ${cardBg} border-${theme.secondary}-${theme.isDarkMode ? '700' : '200'} hover:${cardBg.replace('800', '700').replace('100', '200')} flex flex-col justify-between`}>
+            <button key={item.id} onClick={() => addItemToOrder(item)} className={`p-4 rounded-xl shadow-lg transition duration-200 ease-in-out transform hover:scale-105 hover:shadow-lg border ${cardBg} border-${theme.secondary}-${theme.isDarkMode ? '700' : '200'} hover:${cardBg.replace('800', '700').replace('100', '200')} flex flex-col justify-between`}>
               <div className="text-left">
                 <h3 className={`text-xl font-bold ${primaryText}`}>{item.name}</h3>
                 <p className={`text-sm ${secondaryText} mt-1`}>{item.category}</p>
