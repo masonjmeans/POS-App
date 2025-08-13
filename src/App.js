@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, collection, addDoc, Timestamp, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
-import { ShoppingCart, X, PlusCircle, MinusCircle, Send, Trash2, Settings, ArrowLeft, Plus, Edit, Save, Eraser, LogIn, LogOut, Users, Store, Utensils } from 'lucide-react';
+import { ShoppingCart, X, PlusCircle, MinusCircle, Send, Trash2, Settings, ArrowLeft, Plus, Edit, Save, Eraser, LogIn, LogOut, Users, Store, Utensils, Palette, Sun, Moon } from 'lucide-react';
 
 // Admin Panel Component with new features
 const AdminPanel = ({ setShowAdminPanel, db, appId, menuItems, employees, settings, refreshData }) => {
@@ -19,6 +19,9 @@ const AdminPanel = ({ setShowAdminPanel, db, appId, menuItems, employees, settin
 
   // Business Settings States
   const [businessSettings, setBusinessSettings] = useState(settings);
+
+  // Available colors for the theme
+  const themeColors = ['teal', 'blue', 'purple', 'green', 'red', 'yellow', 'orange', 'indigo', 'rose'];
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -38,6 +41,10 @@ const AdminPanel = ({ setShowAdminPanel, db, appId, menuItems, employees, settin
   const handleSettingsChange = (e) => {
     const { name, value } = e.target;
     setBusinessSettings(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleThemeModeChange = (isDarkMode) => {
+    setBusinessSettings(prev => ({ ...prev, isDarkMode }));
   };
 
   // Add/Update/Delete Menu Items
@@ -152,28 +159,106 @@ const AdminPanel = ({ setShowAdminPanel, db, appId, menuItems, employees, settin
       console.error("Error saving settings:", error);
     }
   };
+  
+  // Determine text and background colors based on dark mode
+  const isDarkMode = businessSettings.isDarkMode;
+  const bgColorClass = isDarkMode ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-800';
+  const cardBgClass = isDarkMode ? 'bg-gray-800' : 'bg-white';
+  const cardHoverClass = isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-200';
+  const borderClass = isDarkMode ? 'border-gray-700' : 'border-gray-200';
+  const inputClass = isDarkMode ? 'bg-gray-700 text-gray-200 border-gray-600 focus:ring-teal-500' : 'bg-gray-200 text-gray-800 border-gray-300 focus:ring-teal-500';
+
+  const primaryBtnClass = `bg-${businessSettings.primaryColor}-${isDarkMode ? '600' : '500'} hover:bg-${businessSettings.primaryColor}-${isDarkMode ? '700' : '600'} text-white shadow-lg`;
+  const primaryTextClass = `text-${businessSettings.primaryColor}-${isDarkMode ? '400' : '600'}`;
+
+  const secondaryBtnClass = isDarkMode ? `bg-gray-700 hover:bg-gray-600 text-white` : `bg-gray-300 hover:bg-gray-400 text-gray-800`;
+  const secondaryTextClass = isDarkMode ? `text-gray-400` : `text-gray-600`;
 
   return (
-    <div className="flex-1 p-6 lg:p-10 bg-gray-900 text-white font-inter min-h-screen relative">
+    <div className={`flex-1 p-6 lg:p-10 font-inter min-h-screen relative ${bgColorClass} transition-colors duration-500`}>
       <div className="flex items-center gap-4 mb-8">
         <button
           onClick={() => setShowAdminPanel(false)}
-          className="p-3 rounded-full bg-gray-800 hover:bg-gray-700 transition"
+          className={`p-3 rounded-full ${cardBgClass} ${cardHoverClass} transition`}
         >
-          <ArrowLeft size={24} />
+          <ArrowLeft size={24} className={secondaryTextClass} />
         </button>
-        <h1 className="text-4xl lg:text-5xl font-extrabold text-teal-400">Admin Controls</h1>
+        <h1 className={`text-4xl lg:text-5xl font-extrabold ${primaryTextClass}`}>Admin Controls</h1>
+      </div>
+
+      {/* Theme Settings Section */}
+      <div className={`${cardBgClass} p-8 rounded-xl shadow-lg mb-8`}>
+        <h2 className={`text-2xl font-bold mb-4 border-b pb-2 ${borderClass} flex items-center gap-2 ${primaryTextClass}`}>
+          <Palette size={24} />
+          Theme Settings
+        </h2>
+        <form onSubmit={saveSettings} className="space-y-4">
+          {/* Light/Dark Mode Toggle */}
+          <div>
+            <label className={`${secondaryTextClass} block mb-2`}>App Mode</label>
+            <div className="flex items-center space-x-4">
+              <button
+                type="button"
+                onClick={() => handleThemeModeChange(false)}
+                className={`flex-1 flex items-center justify-center p-3 rounded-lg transition ${!businessSettings.isDarkMode ? primaryBtnClass : secondaryBtnClass}`}
+              >
+                <Sun className="mr-2" />
+                Light Mode
+              </button>
+              <button
+                type="button"
+                onClick={() => handleThemeModeChange(true)}
+                className={`flex-1 flex items-center justify-center p-3 rounded-lg transition ${businessSettings.isDarkMode ? primaryBtnClass : secondaryBtnClass}`}
+              >
+                <Moon className="mr-2" />
+                Dark Mode
+              </button>
+            </div>
+          </div>
+          {/* Primary Color Picker */}
+          <div>
+            <label className={`${secondaryTextClass} block mb-2`}>Primary Color</label>
+            <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
+              {themeColors.map(color => (
+                <button
+                  key={color}
+                  type="button"
+                  onClick={() => setBusinessSettings(prev => ({ ...prev, primaryColor: color }))}
+                  className={`p-4 rounded-lg transition duration-200 ${businessSettings.primaryColor === color ? `bg-${color}-500 text-white ring-2 ring-${color}-400` : `bg-${color}-300 hover:bg-${color}-400`}`}
+                />
+              ))}
+            </div>
+          </div>
+          {/* Secondary Color Picker */}
+          <div>
+            <label className={`${secondaryTextClass} block mb-2`}>Secondary Color</label>
+            <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
+              {themeColors.map(color => (
+                <button
+                  key={color}
+                  type="button"
+                  onClick={() => setBusinessSettings(prev => ({ ...prev, secondaryColor: color }))}
+                  className={`p-4 rounded-lg transition duration-200 ${businessSettings.secondaryColor === color ? `bg-${color}-500 text-white ring-2 ring-${color}-400` : `bg-${color}-300 hover:bg-${color}-400`}`}
+                />
+              ))}
+            </div>
+          </div>
+          <button type="submit" className={`w-full flex items-center justify-center font-bold py-3 px-6 rounded-lg transition duration-200 ${primaryBtnClass}`}>
+            <Save className="mr-2" />
+            Save Settings
+          </button>
+        </form>
       </div>
 
       {/* Business Settings Section */}
-      <div className="bg-gray-800 p-8 rounded-xl shadow-lg mb-8">
-        <h2 className="text-2xl font-bold text-gray-200 mb-4 border-b pb-2 border-gray-700 flex items-center gap-2">
+      <div className={`${cardBgClass} p-8 rounded-xl shadow-lg mb-8`}>
+        <h2 className={`text-2xl font-bold mb-4 border-b pb-2 ${borderClass} flex items-center gap-2 ${primaryTextClass}`}>
           <Settings size={24} />
           Business Settings
         </h2>
         <form onSubmit={saveSettings} className="space-y-4">
           <div>
-            <label className="block text-gray-400 mb-2">Business Name</label>
+            <label className={`${secondaryTextClass} block mb-2`}>Business Name</label>
             <input
               type="text"
               name="businessName"
@@ -181,29 +266,16 @@ const AdminPanel = ({ setShowAdminPanel, db, appId, menuItems, employees, settin
               onChange={handleSettingsChange}
               placeholder="Business Name"
               required
-              className="w-full bg-gray-700 text-gray-200 p-3 rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-teal-500"
+              className={`w-full p-3 rounded-lg border ${inputClass} focus:outline-none focus:ring-2`}
             />
           </div>
           <div>
-            <label className="block text-gray-400 mb-2">Color Theme</label>
-            <select
-              name="colorTheme"
-              value={businessSettings.colorTheme}
-              onChange={handleSettingsChange}
-              className="w-full bg-gray-700 text-gray-200 p-3 rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-teal-500"
-            >
-              <option value="teal">Teal</option>
-              <option value="blue">Blue</option>
-              <option value="purple">Purple</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-gray-400 mb-2">App Type</label>
+            <label className={`${secondaryTextClass} block mb-2`}>App Type</label>
             <div className="flex items-center space-x-4">
               <button
                 type="button"
                 onClick={() => setBusinessSettings(prev => ({ ...prev, appType: 'Restaurant' }))}
-                className={`flex-1 flex items-center justify-center p-3 rounded-lg transition ${businessSettings.appType === 'Restaurant' ? 'bg-teal-600 text-white' : 'bg-gray-700 text-gray-400'}`}
+                className={`flex-1 flex items-center justify-center p-3 rounded-lg transition ${businessSettings.appType === 'Restaurant' ? primaryBtnClass : secondaryBtnClass}`}
               >
                 <Utensils className="mr-2" />
                 Restaurant
@@ -211,14 +283,14 @@ const AdminPanel = ({ setShowAdminPanel, db, appId, menuItems, employees, settin
               <button
                 type="button"
                 onClick={() => setBusinessSettings(prev => ({ ...prev, appType: 'Business' }))}
-                className={`flex-1 flex items-center justify-center p-3 rounded-lg transition ${businessSettings.appType === 'Business' ? 'bg-teal-600 text-white' : 'bg-gray-700 text-gray-400'}`}
+                className={`flex-1 flex items-center justify-center p-3 rounded-lg transition ${businessSettings.appType === 'Business' ? primaryBtnClass : secondaryBtnClass}`}
               >
                 <Store className="mr-2" />
                 Business
               </button>
             </div>
           </div>
-          <button type="submit" className="w-full flex items-center justify-center font-bold py-3 px-6 rounded-lg transition duration-200 bg-teal-600 hover:bg-teal-700 text-white shadow-lg">
+          <button type="submit" className={`w-full flex items-center justify-center font-bold py-3 px-6 rounded-lg transition duration-200 ${primaryBtnClass}`}>
             <Save className="mr-2" />
             Save Settings
           </button>
@@ -226,48 +298,48 @@ const AdminPanel = ({ setShowAdminPanel, db, appId, menuItems, employees, settin
       </div>
 
       {/* Menu Item Management Section */}
-      <div className="bg-gray-800 p-8 rounded-xl shadow-lg mb-8">
-        <h2 className="text-2xl font-bold text-gray-200 mb-4 border-b pb-2 border-gray-700 flex items-center gap-2">
+      <div className={`${cardBgClass} p-8 rounded-xl shadow-lg mb-8`}>
+        <h2 className={`text-2xl font-bold mb-4 border-b pb-2 ${borderClass} flex items-center gap-2 ${primaryTextClass}`}>
           <Utensils size={24} />
           Menu Item Management
         </h2>
         <form onSubmit={addItem} className="space-y-4 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <input type="text" name="name" value={newItem.name} onChange={handleInputChange} placeholder="Item Name" required className="bg-gray-700 text-gray-200 p-3 rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-teal-500" />
-            <input type="number" name="price" value={newItem.price} onChange={handleInputChange} placeholder="Price" step="0.01" required className="bg-gray-700 text-gray-200 p-3 rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-teal-500" />
-            <select name="category" value={newItem.category} onChange={handleInputChange} className="bg-gray-700 text-gray-200 p-3 rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-teal-500">
+            <input type="text" name="name" value={newItem.name} onChange={handleInputChange} placeholder="Item Name" required className={`p-3 rounded-lg border ${inputClass} focus:outline-none focus:ring-2`} />
+            <input type="number" name="price" value={newItem.price} onChange={handleInputChange} placeholder="Price" step="0.01" required className={`p-3 rounded-lg border ${inputClass} focus:outline-none focus:ring-2`} />
+            <select name="category" value={newItem.category} onChange={handleInputChange} className={`p-3 rounded-lg border ${inputClass} focus:outline-none focus:ring-2`}>
               <option value="Main">Main</option>
               <option value="Side">Side</option>
               <option value="Drink">Drink</option>
             </select>
           </div>
-          <button type="submit" className="w-full flex items-center justify-center font-bold py-3 px-6 rounded-lg transition duration-200 bg-teal-600 hover:bg-teal-700 text-white shadow-lg">
+          <button type="submit" className={`w-full flex items-center justify-center font-bold py-3 px-6 rounded-lg transition duration-200 ${primaryBtnClass}`}>
             <Plus className="mr-2" />
             Add Menu Item
           </button>
         </form>
         {menuItems.length === 0 ? (
-          <p className="text-gray-500 text-center py-4">No menu items found. Add some above!</p>
+          <p className={`${secondaryTextClass} text-center py-4`}>No menu items found. Add some above!</p>
         ) : (
           <div className="space-y-3">
             {menuItems.map(item => (
-              <div key={item.id} className="flex flex-col md:flex-row items-start md:items-center justify-between bg-gray-700 p-4 rounded-lg shadow-md">
+              <div key={item.id} className={`flex flex-col md:flex-row items-start md:items-center justify-between ${secondaryBtnClass} p-4 rounded-lg shadow-md`}>
                 {editingItem?.id === item.id ? (
                   <form onSubmit={updateItem} className="flex flex-col md:flex-row items-center justify-between w-full gap-2">
                     <div className="flex-1 flex flex-col md:flex-row gap-2 w-full">
-                      <input type="text" name="name" value={editingItem.name} onChange={handleEditChange} className="bg-gray-600 text-white p-2 rounded-lg flex-1" required />
-                      <input type="number" name="price" value={editingItem.price} onChange={handleEditChange} step="0.01" className="bg-gray-600 text-white p-2 rounded-lg w-24" required />
-                      <select name="category" value={editingItem.category} onChange={handleEditChange} className="bg-gray-600 text-white p-2 rounded-lg">
+                      <input type="text" name="name" value={editingItem.name} onChange={handleEditChange} className={`p-2 rounded-lg flex-1 ${inputClass}`} required />
+                      <input type="number" name="price" value={editingItem.price} onChange={handleEditChange} step="0.01" className={`p-2 rounded-lg w-24 ${inputClass}`} required />
+                      <select name="category" value={editingItem.category} onChange={handleEditChange} className={`p-2 rounded-lg ${inputClass}`}>
                         <option value="Main">Main</option>
                         <option value="Side">Side</option>
                         <option value="Drink">Drink</option>
                       </select>
                     </div>
                     <div className="flex-shrink-0 flex items-center gap-2 mt-2 md:mt-0">
-                      <button type="submit" className="p-2 rounded-full bg-green-600 hover:bg-green-700 transition">
+                      <button type="submit" className="p-2 rounded-full bg-green-600 hover:bg-green-700 text-white transition">
                         <Save size={20} />
                       </button>
-                      <button type="button" onClick={cancelEditing} className="p-2 rounded-full bg-gray-600 hover:bg-gray-500 transition">
+                      <button type="button" onClick={cancelEditing} className="p-2 rounded-full bg-gray-600 hover:bg-gray-500 text-white transition">
                         <Eraser size={20} />
                       </button>
                     </div>
@@ -275,15 +347,15 @@ const AdminPanel = ({ setShowAdminPanel, db, appId, menuItems, employees, settin
                 ) : (
                   <>
                     <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-gray-200">{item.name}</h3>
-                      <p className="text-sm text-gray-400">{item.category}</p>
+                      <h3 className="text-lg font-semibold">{item.name}</h3>
+                      <p className="text-sm">{item.category}</p>
                     </div>
                     <div className="flex items-center gap-4 mt-2 md:mt-0">
-                      <span className="text-xl font-bold text-green-400">${item.price.toFixed(2)}</span>
-                      <button onClick={() => startEditing(item)} className="p-2 rounded-full bg-blue-600 hover:bg-blue-700 transition">
+                      <span className={`text-xl font-bold text-green-400`}>${item.price.toFixed(2)}</span>
+                      <button onClick={() => startEditing(item)} className="p-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white transition">
                         <Edit size={20} />
                       </button>
-                      <button onClick={() => handleDeleteClick(item)} className="p-2 rounded-full bg-red-600 hover:bg-red-700 transition">
+                      <button onClick={() => handleDeleteClick(item)} className="p-2 rounded-full bg-red-600 hover:bg-red-700 text-white transition">
                         <Trash2 size={20} />
                       </button>
                     </div>
@@ -296,29 +368,29 @@ const AdminPanel = ({ setShowAdminPanel, db, appId, menuItems, employees, settin
       </div>
       
       {/* Employee Management Section */}
-      <div className="bg-gray-800 p-8 rounded-xl shadow-lg">
-        <h2 className="text-2xl font-bold text-gray-200 mb-4 border-b pb-2 border-gray-700 flex items-center gap-2">
+      <div className={`${cardBgClass} p-8 rounded-xl shadow-lg`}>
+        <h2 className={`text-2xl font-bold mb-4 border-b pb-2 ${borderClass} flex items-center gap-2 ${primaryTextClass}`}>
           <Users size={24} />
           Employee Management
         </h2>
         <form onSubmit={addEmployee} className="space-y-4 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <input type="text" name="username" value={newEmployee.username} onChange={handleEmployeeChange} placeholder="Username" required className="bg-gray-700 text-gray-200 p-3 rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-teal-500" />
-            <input type="password" name="password" value={newEmployee.password} onChange={handleEmployeeChange} placeholder="Password" required className="bg-gray-700 text-gray-200 p-3 rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-teal-500" />
+            <input type="text" name="username" value={newEmployee.username} onChange={handleEmployeeChange} placeholder="Username" required className={`p-3 rounded-lg border ${inputClass} focus:outline-none focus:ring-2`} />
+            <input type="password" name="password" value={newEmployee.password} onChange={handleEmployeeChange} placeholder="Password" required className={`p-3 rounded-lg border ${inputClass} focus:outline-none focus:ring-2`} />
           </div>
-          <button type="submit" className="w-full flex items-center justify-center font-bold py-3 px-6 rounded-lg transition duration-200 bg-teal-600 hover:bg-teal-700 text-white shadow-lg">
+          <button type="submit" className={`w-full flex items-center justify-center font-bold py-3 px-6 rounded-lg transition duration-200 ${primaryBtnClass}`}>
             <Plus className="mr-2" />
             Add Employee
           </button>
         </form>
         {employees.length === 0 ? (
-          <p className="text-gray-500 text-center py-4">No employees found. Add one above!</p>
+          <p className={`${secondaryTextClass} text-center py-4`}>No employees found. Add one above!</p>
         ) : (
           <div className="space-y-3">
             {employees.map(employee => (
-              <div key={employee.id} className="flex items-center justify-between bg-gray-700 p-4 rounded-lg shadow-md">
-                <span className="text-lg font-semibold text-gray-200">{employee.username}</span>
-                <button onClick={() => handleDeleteEmployeeClick(employee)} className="p-2 rounded-full bg-red-600 hover:bg-red-700 transition">
+              <div key={employee.id} className={`flex items-center justify-between ${secondaryBtnClass} p-4 rounded-lg shadow-md`}>
+                <span className="text-lg font-semibold">{employee.username}</span>
+                <button onClick={() => handleDeleteEmployeeClick(employee)} className="p-2 rounded-full bg-red-600 hover:bg-red-700 text-white transition">
                   <Trash2 size={20} />
                 </button>
               </div>
@@ -329,11 +401,11 @@ const AdminPanel = ({ setShowAdminPanel, db, appId, menuItems, employees, settin
 
       {showConfirmModal && (
         <div className="absolute inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4">
-          <div className="bg-gray-800 p-6 rounded-xl shadow-2xl max-w-sm w-full">
-            <h3 className="text-xl font-bold text-gray-200 mb-4">Confirm Deletion</h3>
-            <p className="text-gray-400 mb-6">Are you sure you want to delete "{itemToDelete?.name}"? This action cannot be undone.</p>
+          <div className={`p-6 rounded-xl shadow-2xl max-w-sm w-full ${cardBgClass}`}>
+            <h3 className={`text-xl font-bold mb-4 ${primaryTextClass}`}>Confirm Deletion</h3>
+            <p className={`mb-6 ${secondaryTextClass}`}>Are you sure you want to delete "{itemToDelete?.name}"? This action cannot be undone.</p>
             <div className="flex justify-end gap-2">
-              <button onClick={() => setShowConfirmModal(false)} className="px-4 py-2 rounded-lg text-gray-400 hover:bg-gray-700 transition">Cancel</button>
+              <button onClick={() => setShowConfirmModal(false)} className={`px-4 py-2 rounded-lg ${secondaryBtnClass}`}>Cancel</button>
               <button onClick={confirmDelete} className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white transition">Delete</button>
             </div>
           </div>
@@ -342,11 +414,11 @@ const AdminPanel = ({ setShowAdminPanel, db, appId, menuItems, employees, settin
       
       {showEmployeeConfirmModal && (
         <div className="absolute inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4">
-          <div className="bg-gray-800 p-6 rounded-xl shadow-2xl max-w-sm w-full">
-            <h3 className="text-xl font-bold text-gray-200 mb-4">Confirm Employee Deletion</h3>
-            <p className="text-gray-400 mb-6">Are you sure you want to delete employee "{employeeToDelete?.username}"? This action cannot be undone.</p>
+          <div className={`p-6 rounded-xl shadow-2xl max-w-sm w-full ${cardBgClass}`}>
+            <h3 className={`text-xl font-bold mb-4 ${primaryTextClass}`}>Confirm Employee Deletion</h3>
+            <p className={`mb-6 ${secondaryTextClass}`}>Are you sure you want to delete employee "{employeeToDelete?.username}"? This action cannot be undone.</p>
             <div className="flex justify-end gap-2">
-              <button onClick={() => setShowEmployeeConfirmModal(false)} className="px-4 py-2 rounded-lg text-gray-400 hover:bg-gray-700 transition">Cancel</button>
+              <button onClick={() => setShowEmployeeConfirmModal(false)} className={`px-4 py-2 rounded-lg ${secondaryBtnClass}`}>Cancel</button>
               <button onClick={confirmEmployeeDelete} className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white transition">Delete</button>
             </div>
           </div>
@@ -357,7 +429,7 @@ const AdminPanel = ({ setShowAdminPanel, db, appId, menuItems, employees, settin
 };
 
 // Employee Sign-in Screen
-const SignInScreen = ({ handleSignIn, signInError, setShowLogin }) => {
+const SignInScreen = ({ handleSignIn, signInError, setShowLogin, settings }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
 
@@ -365,24 +437,35 @@ const SignInScreen = ({ handleSignIn, signInError, setShowLogin }) => {
     e.preventDefault();
     handleSignIn(username, password);
   };
+  
+  // Determine text and background colors based on dark mode
+  const isDarkMode = settings.isDarkMode;
+  const bgColorClass = isDarkMode ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-800';
+  const cardBgClass = isDarkMode ? 'bg-gray-800' : 'bg-white';
+  const inputClass = isDarkMode ? 'bg-gray-700 text-gray-200 border-gray-600 focus:ring-teal-500' : 'bg-gray-200 text-gray-800 border-gray-300 focus:ring-teal-500';
+
+  const primaryBtnClass = `bg-${settings.primaryColor}-${isDarkMode ? '600' : '500'} hover:bg-${settings.primaryColor}-${isDarkMode ? '700' : '600'} text-white shadow-lg`;
+  const primaryTextClass = `text-${settings.primaryColor}-${isDarkMode ? '400' : '600'}`;
+  const secondaryBtnClass = isDarkMode ? `bg-gray-700 hover:bg-gray-600 text-white` : `bg-gray-300 hover:bg-gray-400 text-gray-800`;
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-900 text-white font-inter">
-      <div className="bg-gray-800 p-8 rounded-xl shadow-lg max-w-sm w-full">
+    <div className={`flex items-center justify-center min-h-screen font-inter transition-colors duration-500 ${bgColorClass}`}>
+      <div className={`p-8 rounded-xl shadow-lg max-w-sm w-full ${cardBgClass}`}>
         <div className="flex flex-col items-center mb-6">
-          <LogIn size={48} className="text-teal-400 mb-4" />
-          <h2 className="text-3xl font-bold text-teal-400">Employee Sign In</h2>
+          <LogIn size={48} className={`mb-4 ${primaryTextClass}`} />
+          <h2 className={`text-3xl font-bold ${primaryTextClass}`}>{settings.businessName}</h2>
+          <h3 className={`text-xl font-bold ${primaryTextClass}`}>Employee Sign In</h3>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Username" className="w-full bg-gray-700 text-gray-200 p-3 rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-teal-500" required />
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" className="w-full bg-gray-700 text-gray-200 p-3 rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-teal-500" required />
+          <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Username" className={`w-full p-3 rounded-lg border focus:outline-none focus:ring-2 ${inputClass}`} required />
+          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" className={`w-full p-3 rounded-lg border focus:outline-none focus:ring-2 ${inputClass}`} required />
           {signInError && <p className="text-red-400 text-sm text-center">{signInError}</p>}
-          <button type="submit" className="w-full mt-4 flex items-center justify-center font-bold py-3 px-6 rounded-lg transition duration-200 bg-teal-600 hover:bg-teal-700 text-white shadow-lg">Sign In</button>
+          <button type="submit" className={`w-full mt-4 flex items-center justify-center font-bold py-3 px-6 rounded-lg transition duration-200 ${primaryBtnClass}`}>Sign In</button>
           
           <button
             type="button"
             onClick={() => setShowLogin(true)}
-            className="w-full mt-2 flex items-center justify-center font-bold py-3 px-6 rounded-lg transition duration-200 bg-gray-600 hover:bg-gray-700 text-white shadow-lg"
+            className={`w-full mt-2 flex items-center justify-center font-bold py-3 px-6 rounded-lg transition duration-200 ${secondaryBtnClass}`}
           >
             <Settings className="mr-2" />
             Admin
@@ -404,7 +487,9 @@ const PosStand = () => {
   const [employees, setEmployees] = useState([]);
   const [settings, setSettings] = useState({
     businessName: 'My Business',
-    colorTheme: 'teal',
+    isDarkMode: false,
+    primaryColor: 'teal',
+    secondaryColor: 'gray',
     appType: 'Restaurant',
   });
 
@@ -611,18 +696,22 @@ const PosStand = () => {
   const taxRate = 0.08;
   const tax = subtotal * taxRate;
   const total = subtotal + tax;
+  
+  // Dynamic class helpers based on settings
+  const theme = {
+    isDarkMode: settings.isDarkMode,
+    primary: settings.primaryColor,
+    secondary: settings.secondaryColor
+  };
 
-  // Set theme class based on settings
-  const themeClass = {
-    'teal': 'bg-teal-600 hover:bg-teal-700',
-    'blue': 'bg-blue-600 hover:bg-blue-700',
-    'purple': 'bg-purple-600 hover:bg-purple-700'
-  }[settings.colorTheme];
-  const highlightClass = {
-    'teal': 'text-teal-400',
-    'blue': 'text-blue-400',
-    'purple': 'text-purple-400'
-  }[settings.colorTheme];
+  const primaryBtn = `bg-${theme.primary}-${theme.isDarkMode ? '600' : '500'} hover:bg-${theme.primary}-${theme.isDarkMode ? '700' : '600'} text-white shadow-lg`;
+  const primaryText = `text-${theme.primary}-${theme.isDarkMode ? '400' : '600'}`;
+  const secondaryBtn = `bg-${theme.secondary}-${theme.isDarkMode ? '700' : '300'} hover:bg-${theme.secondary}-${theme.isDarkMode ? '600' : '400'} ${theme.isDarkMode ? 'text-white' : 'text-gray-800'}`;
+  const secondaryText = `text-${theme.secondary}-${theme.isDarkMode ? '400' : '600'}`;
+  const cardBg = `bg-${theme.secondary}-${theme.isDarkMode ? '800' : '100'}`;
+  const inputClass = `bg-${theme.secondary}-${theme.isDarkMode ? '700' : '200'} text-${theme.isDarkMode ? 'gray-200' : 'gray-800'} border-${theme.secondary}-${theme.isDarkMode ? '600' : '300'} focus:ring-${theme.primary}-500`;
+
+  const appBg = theme.isDarkMode ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-800';
 
   if (loading) {
     return (
@@ -646,16 +735,16 @@ const PosStand = () => {
   // Conditional rendering for Login Screen
   if (showLogin) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-900 text-white font-inter">
-        <div className="bg-gray-800 p-8 rounded-xl shadow-lg max-w-sm w-full">
+      <div className={`flex items-center justify-center min-h-screen font-inter ${appBg} transition-colors duration-500`}>
+        <div className={`${cardBg} p-8 rounded-xl shadow-lg max-w-sm w-full`}>
           <div className="flex items-center justify-between mb-6">
-            <h2 className={`text-2xl font-bold ${highlightClass}`}>Admin Login</h2>
-            <button onClick={() => setShowLogin(false)} className="p-2 rounded-full bg-gray-700 hover:bg-gray-600 transition"><X size={24} /></button>
+            <h2 className={`text-2xl font-bold ${primaryText}`}>Admin Login</h2>
+            <button onClick={() => setShowLogin(false)} className={`p-2 rounded-full ${secondaryBtn}`} aria-label="Close Admin Login"><X size={24} /></button>
           </div>
           <form onSubmit={handleAdminLogin}>
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter password" className={`w-full bg-gray-700 text-gray-200 p-3 rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-${settings.colorTheme}-500`} />
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter password" className={`w-full p-3 rounded-lg border focus:outline-none focus:ring-2 ${inputClass}`} />
             {loginError && <p className="text-red-400 text-sm mt-2">{loginError}</p>}
-            <button type="submit" className={`w-full mt-4 flex items-center justify-center font-bold py-3 px-6 rounded-lg transition duration-200 ${themeClass} text-white shadow-lg`}>
+            <button type="submit" className={`w-full mt-4 flex items-center justify-center font-bold py-3 px-6 rounded-lg transition duration-200 ${primaryBtn}`}>
               <Settings className="mr-2" />
               Unlock Admin Panel
             </button>
@@ -667,24 +756,24 @@ const PosStand = () => {
 
   // Show employee sign-in screen if not signed in
   if (!isEmployeeSignedIn) {
-    return <SignInScreen handleSignIn={handleEmployeeSignIn} signInError={signInError} setShowLogin={setShowLogin} />;
+    return <SignInScreen handleSignIn={handleEmployeeSignIn} signInError={signInError} setShowLogin={setShowLogin} settings={settings} />;
   }
 
   return (
-    <div className={`flex min-h-screen bg-gray-900 text-white font-inter theme-${settings.colorTheme}`}>
+    <div className={`flex min-h-screen font-inter transition-colors duration-500 ${appBg} ${theme.isDarkMode ? 'dark' : ''}`}>
       {/* Main Menu Area */}
       <div className="flex-1 p-6 lg:p-10">
-        <h1 className={`text-4xl lg:text-5xl font-extrabold ${highlightClass} mb-6`}>
+        <h1 className={`text-4xl lg:text-5xl font-extrabold ${primaryText} mb-6`}>
           {settings.businessName}
         </h1>
-        <p className="text-xl text-gray-400 mb-8">{settings.appType} POS Stand</p>
+        <p className={`text-xl ${secondaryText} mb-8`}>{settings.appType} POS Stand</p>
         
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {menuItems.map(item => (
-            <button key={item.id} onClick={() => addItemToOrder(item)} className="bg-gray-800 p-4 rounded-xl shadow-lg hover:bg-gray-700 transition duration-200 ease-in-out transform hover:scale-105 border border-gray-700 flex flex-col justify-between">
+            <button key={item.id} onClick={() => addItemToOrder(item)} className={`p-4 rounded-xl shadow-lg transition duration-200 ease-in-out transform hover:scale-105 border ${cardBg} border-${theme.secondary}-${theme.isDarkMode ? '700' : '200'} hover:${cardBg.replace('800', '700').replace('100', '200')} flex flex-col justify-between`}>
               <div className="text-left">
-                <h3 className="text-xl font-bold text-gray-200">{item.name}</h3>
-                <p className="text-sm text-gray-400 mt-1">{item.category}</p>
+                <h3 className={`text-xl font-bold ${primaryText}`}>{item.name}</h3>
+                <p className={`text-sm ${secondaryText} mt-1`}>{item.category}</p>
               </div>
               <p className="text-right text-3xl font-black text-green-400 mt-2">${item.price.toFixed(2)}</p>
             </button>
@@ -693,43 +782,43 @@ const PosStand = () => {
       </div>
 
       {/* Order Summary Sidebar */}
-      <div className="w-full lg:w-1/3 bg-gray-800 p-6 lg:p-8 flex flex-col shadow-2xl">
+      <div className={`w-full lg:w-1/3 p-6 lg:p-8 flex flex-col shadow-2xl ${cardBg}`}>
         <div className="flex items-center justify-between mb-6">
-          <h2 className={`text-3xl lg:text-4xl font-extrabold ${highlightClass}`}>
+          <h2 className={`text-3xl lg:text-4xl font-extrabold ${primaryText}`}>
             <ShoppingCart className="inline-block mr-2" />
             Current Order
           </h2>
           <div className="flex items-center space-x-2">
-            <button onClick={() => setShowLogin(true)} className="p-2 rounded-full bg-gray-700 hover:bg-gray-600 transition" aria-label="Open Admin Controls">
-              <Settings size={24} className="text-gray-400" />
+            <button onClick={() => setShowLogin(true)} className={`p-2 rounded-full ${secondaryBtn}`} aria-label="Open Admin Controls">
+              <Settings size={24} className={secondaryText} />
             </button>
-            <button onClick={handleEmployeeSignOut} className="p-2 rounded-full bg-gray-700 hover:bg-gray-600 transition" aria-label="Sign Out">
-              <LogOut size={24} className="text-gray-400" />
+            <button onClick={handleEmployeeSignOut} className={`p-2 rounded-full ${secondaryBtn}`} aria-label="Sign Out">
+              <LogOut size={24} className={secondaryText} />
             </button>
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto mb-6 pr-2">
           {order.length === 0 ? (
-            <div className="text-center text-gray-500 text-lg py-12">
+            <div className={`text-center ${secondaryText} text-lg py-12`}>
               <p>Your order is empty.</p>
               <p>Add items from the menu!</p>
             </div>
           ) : (
             <div className="space-y-4">
               {order.map(item => (
-                <div key={item.id} className="flex items-center justify-between bg-gray-700 p-3 rounded-lg shadow-md">
+                <div key={item.id} className={`flex items-center justify-between p-3 rounded-lg shadow-md bg-${theme.secondary}-${theme.isDarkMode ? '700' : '200'}`}>
                   <div className="flex items-center space-x-3">
                     <button onClick={() => removeItemFromOrder(item.id)} className="text-red-400 hover:text-red-500 transition"><X size={18} /></button>
                     <span className="text-lg font-semibold">{item.name}</span>
                   </div>
                   <div className="flex items-center space-x-3">
-                    <div className="flex items-center border border-gray-600 rounded-md">
-                      <button onClick={() => updateItemQuantity(item.id, -1)} className="px-2 py-1 text-gray-400 hover:text-white transition"><MinusCircle size={20} /></button>
+                    <div className={`flex items-center border rounded-md border-${theme.secondary}-${theme.isDarkMode ? '600' : '300'}`}>
+                      <button onClick={() => updateItemQuantity(item.id, -1)} className={`px-2 py-1 ${secondaryText} hover:text-${theme.primary}-${theme.isDarkMode ? '400' : '600'} transition`} aria-label={`Decrease quantity of ${item.name}`}><MinusCircle size={20} /></button>
                       <span className="px-2 text-xl font-bold">{item.quantity}</span>
-                      <button onClick={() => updateItemQuantity(item.id, 1)} className="px-2 py-1 text-gray-400 hover:text-white transition"><PlusCircle size={20} /></button>
+                      <button onClick={() => updateItemQuantity(item.id, 1)} className={`px-2 py-1 ${secondaryText} hover:text-${theme.primary}-${theme.isDarkMode ? '400' : '600'} transition`} aria-label={`Increase quantity of ${item.name}`}><PlusCircle size={20} /></button>
                     </div>
-                    <span className="text-lg font-bold">${(item.price * item.quantity).toFixed(2)}</span>
+                    <span className={`text-lg font-bold ${primaryText}`}>${(item.price * item.quantity).toFixed(2)}</span>
                   </div>
                 </div>
               ))}
@@ -737,18 +826,18 @@ const PosStand = () => {
           )}
         </div>
 
-        <div className="border-t border-gray-600 pt-6 space-y-2">
-          <div className="flex justify-between text-xl font-medium text-gray-300"><span>Subtotal:</span><span>${subtotal.toFixed(2)}</span></div>
-          <div className="flex justify-between text-xl font-medium text-gray-300"><span>Tax (8%):</span><span>${tax.toFixed(2)}</span></div>
-          <div className="flex justify-between text-4xl font-extrabold text-green-400 mt-4"><span>Total:</span><span>${total.toFixed(2)}</span></div>
+        <div className={`border-t pt-6 space-y-2 border-${theme.secondary}-${theme.isDarkMode ? '600' : '300'}`}>
+          <div className={`flex justify-between text-xl font-medium ${secondaryText}`}><span>Subtotal:</span><span>${subtotal.toFixed(2)}</span></div>
+          <div className={`flex justify-between text-xl font-medium ${secondaryText}`}><span>Tax (8%):</span><span>${tax.toFixed(2)}</span></div>
+          <div className={`flex justify-between text-4xl font-extrabold ${primaryText} mt-4`}><span>Total:</span><span>${total.toFixed(2)}</span></div>
         </div>
 
         <div className="mt-6 space-y-4">
-          <button onClick={sendOrderToKitchen} disabled={order.length === 0} className={`w-full flex items-center justify-center font-bold py-4 px-6 rounded-lg transition duration-200 ${order.length > 0 ? `${themeClass} text-white shadow-lg` : 'bg-gray-600 text-gray-400 cursor-not-allowed'}`}>
+          <button onClick={sendOrderToKitchen} disabled={order.length === 0} className={`w-full flex items-center justify-center font-bold py-4 px-6 rounded-lg transition duration-200 ${order.length > 0 ? primaryBtn : `bg-${theme.secondary}-${theme.isDarkMode ? '700' : '200'} text-${theme.secondary}-${theme.isDarkMode ? '400' : '600'} cursor-not-allowed`}`}>
             <Send className="mr-2" />
             Send to Kitchen
           </button>
-          <button onClick={clearOrder} disabled={order.length === 0} className={`w-full flex items-center justify-center font-bold py-4 px-6 rounded-lg transition duration-200 ${order.length > 0 ? 'bg-red-600 hover:bg-red-700 text-white shadow-lg' : 'bg-gray-600 text-gray-400 cursor-not-allowed'}`}>
+          <button onClick={clearOrder} disabled={order.length === 0} className={`w-full flex items-center justify-center font-bold py-4 px-6 rounded-lg transition duration-200 ${order.length > 0 ? 'bg-red-600 hover:bg-red-700 text-white shadow-lg' : `bg-${theme.secondary}-${theme.isDarkMode ? '700' : '200'} text-${theme.secondary}-${theme.isDarkMode ? '400' : '600'} cursor-not-allowed`}`}>
             <Trash2 className="mr-2" />
             Clear Order
           </button>
