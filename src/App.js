@@ -414,7 +414,7 @@ const PosStand = () => {
   
   // State for password-protected admin access
   const [showLogin, setShowLogin] = useState(false);
-  const [showAdminPanel, setShowAdminPanel] = useState(false); // <-- FIX: ADDED MISSING STATE
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const adminPassword = 'Means';
