@@ -505,8 +505,6 @@ const PosStand = () => {
   const [loginError, setLoginError] = useState('');
   const adminPassword = 'Means'; // This is a placeholder for a real admin password
 
-  // This is the useEffect causing the error. I've added a comment to disable the warning.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     console.log("Starting Firebase initialization and data fetching...");
     
@@ -519,6 +517,14 @@ const PosStand = () => {
     let unsubscribeMenu = () => {};
     let unsubscribeEmployees = () => {};
     let unsubscribeSettings = () => {};
+
+    const DEFAULT_SETTINGS = {
+        businessName: 'My Business',
+        isDarkMode: false,
+        primaryColor: 'teal',
+        secondaryColor: 'gray',
+        appType: 'Restaurant',
+    };
 
     try {
       const firebaseConfig = JSON.parse(__firebase_config);
@@ -574,7 +580,7 @@ const PosStand = () => {
             console.log("Fetched business settings.");
           } else {
             console.log("No business settings found, creating with defaults.");
-            setDoc(settingsRef, settings); // Create default settings if none exist
+            setDoc(settingsRef, DEFAULT_SETTINGS); // Create default settings if none exist
           }
         }, (error) => {
           console.error("Error fetching settings:", error);
