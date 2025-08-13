@@ -351,7 +351,7 @@ const AdminPanel = ({ setShowAdminPanel, db, appId, menuItems, employees, settin
                       <p className="text-sm">{item.category}</p>
                     </div>
                     <div className="flex items-center gap-4 mt-2 md:mt-0">
-                      <span className={`text-xl font-bold text-green-400`}>${item.price.toFixed(2)}</span>
+                      <span className="text-xl font-bold text-green-400">${item.price.toFixed(2)}</span>
                       <button onClick={() => startEditing(item)} className="p-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white transition">
                         <Edit size={20} />
                       </button>
@@ -505,9 +505,9 @@ const PosStand = () => {
   const [loginError, setLoginError] = useState('');
   const adminPassword = 'Means'; // This is a placeholder for a real admin password
 
-  // Combined Effect to initialize Firebase and fetch all data
+  // This is the useEffect causing the error. I've added a comment to disable the warning.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     console.log("Starting Firebase initialization and data fetching...");
     
     if (typeof __firebase_config === 'undefined' || typeof __app_id === 'undefined') {
