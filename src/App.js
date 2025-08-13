@@ -357,7 +357,7 @@ const AdminPanel = ({ setShowAdminPanel, db, appId, menuItems, employees, settin
 };
 
 // Employee Sign-in Screen
-const SignInScreen = ({ handleSignIn, signInError }) => {
+const SignInScreen = ({ handleSignIn, signInError, setShowLogin }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
 
@@ -378,6 +378,15 @@ const SignInScreen = ({ handleSignIn, signInError }) => {
           <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" className="w-full bg-gray-700 text-gray-200 p-3 rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-teal-500" required />
           {signInError && <p className="text-red-400 text-sm text-center">{signInError}</p>}
           <button type="submit" className="w-full mt-4 flex items-center justify-center font-bold py-3 px-6 rounded-lg transition duration-200 bg-teal-600 hover:bg-teal-700 text-white shadow-lg">Sign In</button>
+          
+          <button
+            type="button"
+            onClick={() => setShowLogin(true)}
+            className="w-full mt-2 flex items-center justify-center font-bold py-3 px-6 rounded-lg transition duration-200 bg-gray-600 hover:bg-gray-700 text-white shadow-lg"
+          >
+            <Settings className="mr-2" />
+            Admin
+          </button>
         </form>
       </div>
     </div>
@@ -522,8 +531,8 @@ const PosStand = () => {
   };
 
   const handleEmployeeSignOut = () => {
-    setIsEmployeeSignedIn(false);
-    setOrder([]); // Clear the order on sign out
+      setIsEmployeeSignedIn(false);
+      setOrder([]);
   };
 
   // Handle password submission for admin access
@@ -643,11 +652,11 @@ const PosStand = () => {
       <div className="flex items-center justify-center min-h-screen bg-gray-900 text-white font-inter">
         <div className="bg-gray-800 p-8 rounded-xl shadow-lg max-w-sm w-full">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold ${highlightClass}">Admin Login</h2>
+            <h2 className={`text-2xl font-bold ${highlightClass}`}>Admin Login</h2>
             <button onClick={() => setShowLogin(false)} className="p-2 rounded-full bg-gray-700 hover:bg-gray-600 transition"><X size={24} /></button>
           </div>
           <form onSubmit={handleAdminLogin}>
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter password" className="w-full bg-gray-700 text-gray-200 p-3 rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-${settings.colorTheme}-500" />
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter password" className={`w-full bg-gray-700 text-gray-200 p-3 rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-${settings.colorTheme}-500`} />
             {loginError && <p className="text-red-400 text-sm mt-2">{loginError}</p>}
             <button type="submit" className={`w-full mt-4 flex items-center justify-center font-bold py-3 px-6 rounded-lg transition duration-200 ${themeClass} text-white shadow-lg`}>
               <Settings className="mr-2" />
@@ -661,7 +670,7 @@ const PosStand = () => {
 
   // Show employee sign-in screen if not signed in
   if (!isEmployeeSignedIn) {
-    return <SignInScreen handleSignIn={handleEmployeeSignIn} signInError={signInError} />;
+    return <SignInScreen handleSignIn={handleEmployeeSignIn} signInError={signInError} setShowLogin={setShowLogin} />;
   }
 
   return (
